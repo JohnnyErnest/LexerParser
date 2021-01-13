@@ -1,0 +1,184 @@
+{
+  "parser": {
+    "identifier": {
+      "sequence": [
+        {
+          "isOptional": "true",
+          "tokenList": "underscore"
+        },
+        { "tokenList": "letters" },
+        {
+          "isOptional": "true",
+          "isRepeating": "true",
+          "tokenList": "letters,hyphen,underscore"
+        },
+        {
+          "isOptional": "true",
+          "tokenList": "digits"
+        }
+      ]
+    },
+    "cssIdSelector": {
+      "sequence": [
+        {
+          "tokenList": "whitespaces",
+          "isOptional": "true"
+        },
+        { "tokenList": "hashMark" },
+        { "sequenceList": "identifier" },
+        {
+          "tokenList": "whitespaces",
+          "isOptional": "true"
+        }
+      ]
+    },
+    "cssClassSelector": {
+      "sequence": [
+        {
+          "tokenList": "whitespaces",
+          "isOptional": "true"
+        },
+        { "tokenList": "period" },
+        { "sequenceList": "identifier" },
+        {
+          "tokenList": "whitespaces",
+          "isOptional": "true"
+        }
+      ]
+    },
+    "cssTagSelector": {
+      "sequence": [
+        {
+          "tokenList": "whitespaces",
+          "isOptional": "true"
+        },
+        { "sequenceList": "identifier" },
+        {
+          "tokenList": "whitespaces",
+          "isOptional": "true"
+        }
+      ]
+    },
+    "cssSelector": {
+      "sequence": [
+        { "sequenceList": "cssIdSelector,cssClassSelector,cssTagSelector" }
+      ]
+    },
+    "cssValidText": {
+      "sequence": [
+        {
+          "tokenList": "letters,digits,parenthesisOpen,parenthesisClose,hashMark,colon,forwardSlash,period,comma,strEscapedQuote,strEscapedDoubleQuote",
+          "isRepeating": "true"
+        }
+      ]
+    },
+    "cssStringIdentifierQuote": {
+      "sequence": [
+        { "tokenList": "quote" },
+        { "sequenceList": "cssValidText" },
+        { "tokenList": "quote" }
+      ]
+    },
+    "cssStringIdentifierDoubleQuote": {
+      "sequence": [
+        { "tokenList": "doubleQuote" },
+        { "sequenceList": "cssValidText" },
+        { "tokenList": "doubleQuote" }
+      ]
+    },
+    "cssValueIdentifier": {
+      "sequence": [
+        { "tokenList": "letters,digits" }
+      ]
+    },
+    "cssColorIdentifier": {
+      "sequence": [
+        { "tokenList": "hashMark" },
+        {
+          "tokenList": "hexadecimal",
+          "isRepeating": "true"
+        }
+      ]
+    },
+    "cssProperty": {
+      "sequence": [
+        {
+          "tokenList": "whitespaces",
+          "isOptional": "true"
+        },
+        {
+          "tokenList": "letters",
+          "varName": "propertyName"
+        },
+        {
+          "tokenList": "letters,hyphen",
+          "isOptional": "true",
+          "isRepeating": "true",
+          "varName": "propertyName"
+        },
+        {
+          "tokenList": "whitespaces",
+          "isOptional": "true"
+        },
+        {
+          "tokenList": "colon"
+        },
+        {
+          "tokenList": "whitespaces",
+          "isOptional": "true"
+        },
+        {
+          "sequenceList": "cssValueIdentifier,cssStringIdentifierQuote,cssStringIdentifierDoubleQuote,cssColorIdentifier",
+          "varName": "propertyValue"
+        },
+        {
+          "tokenList": "semicolon"
+        }
+      ]
+    },
+    "cssStatementBlock": {
+      "sequence": [
+        { "tokenList": "braceOpen" },
+        {
+          "tokenList": "whitespaces",
+          "isOptional": "true"
+        },
+        {
+          "sequenceList": "cssProperty",
+          "isRepeating": "true"
+        },
+        {
+          "tokenList": "whitespaces",
+          "isOptional": "true"
+        },
+        { "tokenList": "braceClose" }
+      ]
+    },
+    "cssStatement": {
+      "sequence": [
+        {
+          "tokenList": "whitespaces",
+          "isOptional": "true"
+        },
+        { "sequenceList": "cssSelector" },
+        {
+          "tokenList": "whitespaces",
+          "isOptional": "true"
+        },
+        { "sequenceList": "cssStatementBlock" },
+        {
+          "tokenList": "whitespaces",
+          "isOptional": "true"
+        }
+      ]
+    },
+    "cssStatements": {
+      "sequence": [
+        {
+          "sequenceList": "cssStatement",
+          "isRepeating": "true"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,134 @@
+{
+  "userLexer": {
+    "strAs": "ci_string:as",
+    "strEquals": "ci_string:equals",
+    "strAnd": "ci_string:and",
+    "strOr": "ci_string:or",
+    "strSqlSelect": "ci_string:select",
+    "strSqlFrom": "ci_string:from",
+    "strSqlWhere": "ci_string:where",
+    "strSqlOrderBy": "ci_string:order by",
+    "strSqlGroupBy": "ci_string:group by",
+    "strSqlHaving": "ci_string:having",
+    "strSqlJoin": "ci_string:join",
+    "strSqlLeftJoin": "ci_string:left join",
+    "strSqlInnerJoin": "ci_string:inner join",
+    "strSqlRightJoin": "ci_string:right join"
+  },
+  "parser": {
+    "identifier": {
+      "sequence": [
+        {
+          "isOptional": "true",
+          "tokenList": "underscore"
+        },
+        { "tokenList": "letters" },
+        {
+          "isOptional": "true",
+          "isRepeating": "true",
+          "tokenList": "letters,hyphen,underscore"
+        },
+        {
+          "isOptional": "true",
+          "tokenList": "digits"
+        }
+      ]
+    },
+    "sqlAlias": {
+      "sequence": [
+        {
+          "tokenList": "whitespaces",
+          "isOptional": "true"
+        },
+        {
+          "tokenList": "strAs"
+        },
+        {
+          "tokenList": "whitespaces"
+        },
+        {
+          "sequenceList": "identifier",
+          "varName": "aliasName"
+        },
+        {
+          "tokenList": "whitespaces",
+          "isOptional": "true"
+        }
+      ]
+    },
+    "sqlIdentifierListPart": {
+      "sequence": [
+        {
+          "tokenList": "whitespaces",
+          "isOptional": "true"
+        },
+        {
+          "tokenList": "comma"
+        },
+        {
+          "tokenList": "whitespaces",
+          "isOptional": "true"
+        },
+        {
+          "sequenceList": "identifier",
+          "varName": "name"
+        },
+        {
+          "tokenList": "whitespaces",
+          "isOptional": "true"
+        },
+        {
+          "sequenceList": "sqlAlias",
+          "isOptional": "true"
+        },
+        {
+          "tokenList": "whitespaces",
+          "isOptional": "true"
+        }
+      ]
+    },
+    "sqlIdentifierList": {
+      "sequence": [
+        {
+          "tokenList": "whitespaces",
+          "isOptional": "true"
+        },
+        {
+          "sequenceList": "identifier",
+          "varName": "name"
+        },
+        {
+          "tokenList": "whitespaces",
+          "isOptional": "true"
+        },
+        {
+          "sequenceList": "sqlAlias",
+          "isOptional": "true"
+        },
+        {
+          "tokenList": "whitespaces",
+          "isOptional": "true"
+        },
+        {
+          "sequenceList": "sqlIdentifierListPart",
+          "isRepeating": "true",
+          "isOptional": "true"
+        }
+      ]
+    },
+    "sqlSelectStatement": {
+      "sequence": [
+        { "tokenList": "strSqlSelect" },
+        {
+          "sequenceList": "sqlIdentifierList",
+          "varName": "selectFields"
+        },
+        { "tokenList": "strSqlFrom" },
+        {
+          "sequenceList": "sqlIdentifierList",
+          "varName": "tableNames"
+        }
+      ]
+    }
+  }
+}

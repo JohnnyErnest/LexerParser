@@ -1,0 +1,90 @@
+{
+  "userLexer": {
+    "strVar": "ci_string:var"
+  },
+  "parser": {
+    "identifier": {
+      "sequence": [
+        {
+          "isOptional": "true",
+          "tokenList": "underscore"
+        },
+        { "tokenList": "letters" },
+        {
+          "isOptional": "true",
+          "isRepeating": "true",
+          "tokenList": "letters,hyphen,underscore"
+        },
+        {
+          "isOptional": "true",
+          "tokenList": "digits"
+        }
+      ]
+    },
+    "stringLiteralDoubleQuoted": {
+      "sequence": [
+        { "tokenList": "doubleQuote" },
+        {
+          "tokenList": "letters,digits,strEscapedDoubleQuote",
+          "isOptional": "true",
+          "varName": "strValue"
+        },
+        { "tokenList": "doubleQuote" }
+      ]
+    },
+    "stringLiteralQuoted": {
+      "sequence": [
+        { "tokenList": "quote" },
+        {
+          "tokenList": "letters,digits,strEscapedQuote",
+          "isOptional": "true",
+          "varName": "strValue"
+        },
+        { "tokenList": "quote" }
+      ]
+    },
+    "stringLiteral": {
+      "sequence": [
+        { "sequenceList": "stringLiteralQuoted,stringLiteralDoubleQuoted" }
+      ]
+    },
+    "literal": {
+      "sequence": [
+        { "sequenceList": "stringLiteral", "tokenList": "digits" }
+      ]
+    },
+    "simpleAssignment": {
+      "sequence": [
+        { "tokenList": "strVar" },
+        { "tokenList": "whitespaces" },
+        {
+          "sequenceList": "identifier",
+          "varName": "name"
+        },
+        {
+          "tokenList": "whitespaces",
+          "isOptional": "true"
+        },
+        { "tokenList": "equals" },
+        {
+          "tokenList": "whitespaces",
+          "isOptional": "true"
+        },
+        {
+          "sequenceList": "literal",
+          "varName": "value"
+        },
+        { "tokenList": "semicolon" },
+        {
+          "tokenList": "whitespaces",
+          "isOptional": "true"
+        }
+      ]
+    },
+    "statements": {
+      "sequence": [
+        { "sequenceList": "simpleAssignment", "isRepeating": "true" }
+      ]
+    }
+  }
+}

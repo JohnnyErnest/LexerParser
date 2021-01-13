@@ -1,0 +1,93 @@
+{
+  "parser": {
+    "innerTagText": {
+      "sequence": [
+        {
+          "tokenList": "letters,spaces,digits,whitespaces,semicolon,underscore,equals",
+          "isRepeating": "true",
+          "varName": "innerHtml"
+        }
+      ]
+    },
+    "openTag": {
+      "sequence": [
+        { "tokenList": "lessThan" },
+        {
+          "tokenList": "letters",
+          "varName": "tagName"
+        },
+        {
+          "tokenList": "digits",
+          "isOptional": "true",
+          "varName": "tagName"
+        },
+        { "tokenList": "greaterThan" }
+      ]
+    },
+    "closeTag": {
+      "sequence": [
+        { "tokenList": "lessThan" },
+        { "tokenList": "forwardSlash" },
+        {
+          "tokenList": "letters",
+          "varName": "tagName"
+        },
+        {
+          "tokenList": "digits",
+          "isOptional": "true",
+          "varName": "tagName"
+        },
+        { "tokenList": "greaterThan" }
+      ]
+    },
+    ////"insideTag": {
+    ////  "sequence": [
+    ////    //{
+    ////    //  "sequenceList": "innerTagText",
+    ////    //  "isRepeating": "true",
+    ////    //  "isOptional": "true",
+    ////    //  "varName": "leadingInnerHtml"
+    ////    //},
+    ////    ////{
+    ////    ////  "sequenceList": "tag",
+    ////    ////  //"isOptional": "true",
+    ////    ////  "isRepeating": "true"
+    ////    ////}
+    ////  ]
+    ////},
+    "tag": {
+      "sequence": [
+        {
+          "sequenceList": "openTag",
+          "varName": "openingTag"
+        },
+        {
+          "sequenceList": "innerTagText",
+          "isRepeating": "true",
+          "isOptional": "true",
+          "varName": "leadingInnerHtml"
+        },
+        {
+          "sequenceList": "tag",
+          "isOptional": "true",
+          "isRepeating": "true"
+        },
+        //{
+        //  "sequenceList": "insideTag",
+        //  "isOptional": "true",
+        //  "isRepeating": "true"
+        //},
+        {
+          "sequenceList": "innerTagText",
+          "isRepeating": "true",
+          "isOptional": "true",
+          "varName": "trailingInnerHtml"
+        },
+        {
+          "sequenceList": "closeTag",
+          "varName": "closingTag"
+        }
+      ]
+    }
+  }
+}
