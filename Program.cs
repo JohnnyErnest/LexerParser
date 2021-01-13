@@ -1068,7 +1068,7 @@ namespace LexerParser1
             string inputSql = "select column1, column2 as c2 from _yay";
             string inputCss = "body { background-color: #512fff; margin-left: auto; color: '#123456'; } h2 { color: 'blue'; }";
             string inputJs = "var i = \"Hello\"; var x=5;";
-            string inputEBNF = "a=5;";
+            string inputEBNF = "a=\"5\";";
 
             var htmlParserResult = htmlParser.Parse(inputHtml);
             var sqlParserResult = sqlParser.Parse(inputSql);
