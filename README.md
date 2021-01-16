@@ -29,9 +29,13 @@ static void Main(string[] args)
     {
         ParserResultWalker walker = new ParserResultWalker(result.Results[0], showOnConsoleDefault: true);
         walker.Visit();
+        
+        ConsoleWalker walker = new ConsoleWalker(result.Results[0]);
     }    
 }
 ```
+
+![Screenshot](https://www.github.com/JohnnyErnest/LexerParser/images/ParserImage.png)
 
 Output is an indicator whether the input matched a parsing rule, as well as an Abstract Syntax Tree of ParserResult nodes that can be walked. Parser rules and lexical tokens can be added or removed dynamically at runtime for adding or removing grammars.
 
