@@ -1539,19 +1539,20 @@ namespace LexerParser1
             }
         }
     }
-    public class SyntaxWalker
+    public class ParserResultWalker
     {
+        public bool ShowOnConsoleDefault { get; set; }
         public Parser.ParserResult ParserResult { get; set; }
-        public SyntaxWalker(Parser.ParserResult parserResult)
+        public ParserResultWalker(Parser.ParserResult parserResult, bool showOnConsoleDefault = false)
         {
             ParserResult = parserResult;
+            ShowOnConsoleDefault = showOnConsoleDefault;
         }
-        public void Visit()
+        public virtual void Visit()
         {
-            int level = 0;
             VisitSequenceNode(ParserResult);
         }
-        public void VisitSequenceNode(Parser.ParserResult node, int level = 0)
+        public virtual void VisitSequenceNode(Parser.ParserResult node, int level = 0)
         {
             string levelString = "".PadLeft(level, ' ');
             if (node.Span != null)
@@ -1560,17 +1561,23 @@ namespace LexerParser1
             }
             else
             {
-                Console.WriteLine($"{levelString}Node: {node.Name}, InnerText: {node.InnerResultsText}");
+                if (ShowOnConsoleDefault)
+                {
+                    Console.WriteLine($"{levelString}Node:{node.Name}, Start:{node.MinStart()}, InnerText:{node.InnerResultsText}");
+                }
                 foreach (var item in node.InnerResults)
                 {
                     VisitSequenceNode(item, level + 1);
                 }
             }
         }
-        public void VisitToken(Lexer.Span span, int level = 0)
+        public virtual void VisitToken(Lexer.Span span, int level = 0)
         {
             string levelString = "".PadLeft(level, ' ');
-            Console.WriteLine($"{levelString}Token: {span.Rule.RuleName} - {span.Text}");
+            if (ShowOnConsoleDefault)
+            {
+                Console.WriteLine($"{levelString}Token: {span.Rule.RuleName}, Start:{span.Start}, Text:{span.Text}");
+            }
         }
     }
 
@@ -1605,7 +1612,7 @@ namespace LexerParser1
             var result = parser.Parse(inputHtml, sequenceName: "htmlTag", showOnConsole: false);
             if (result.Matched)
             {
-                SyntaxWalker walker = new SyntaxWalker(result.Results[0]);
+                ParserResultWalker walker = new ParserResultWalker(result.Results[0], showOnConsoleDefault: true);
                 walker.Visit();
             }
         }
