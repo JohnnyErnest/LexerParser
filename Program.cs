@@ -1539,6 +1539,40 @@ namespace LexerParser1
             }
         }
     }
+    public class SyntaxWalker
+    {
+        public Parser.ParserResult ParserResult { get; set; }
+        public SyntaxWalker(Parser.ParserResult parserResult)
+        {
+            ParserResult = parserResult;
+        }
+        public void Visit()
+        {
+            int level = 0;
+            VisitSequenceNode(ParserResult);
+        }
+        public void VisitSequenceNode(Parser.ParserResult node, int level = 0)
+        {
+            string levelString = "".PadLeft(level, ' ');
+            if (node.Span != null)
+            {
+                VisitToken(node.Span, level + 1);
+            }
+            else
+            {
+                Console.WriteLine($"{levelString}Node: {node.Name}, InnerText: {node.InnerResultsText}");
+                foreach (var item in node.InnerResults)
+                {
+                    VisitSequenceNode(item, level + 1);
+                }
+            }
+        }
+        public void VisitToken(Lexer.Span span, int level = 0)
+        {
+            string levelString = "".PadLeft(level, ' ');
+            Console.WriteLine($"{levelString}Token: {span.Rule.RuleName} - {span.Text}");
+        }
+    }
 
     class Program
     {
@@ -1569,6 +1603,11 @@ namespace LexerParser1
 
             string inputHtml = "<html><head><title>Title</title></head><body><h2>Helloooo hi</h2><div>Here is <span>some</span> text</div></body></html>";
             var result = parser.Parse(inputHtml, sequenceName: "htmlTag", showOnConsole: false);
+            if (result.Matched)
+            {
+                SyntaxWalker walker = new SyntaxWalker(result.Results[0]);
+                walker.Visit();
+            }
         }
     }
 }
