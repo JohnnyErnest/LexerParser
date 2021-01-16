@@ -1581,10 +1581,84 @@ namespace LexerParser1
         }
     }
 
+    public class ConsoleWalker : ParserResultWalker
+    {
+        public List<(string, string)> Nodes = new List<(string, string)>();
+        public ConsoleWalker(Parser.ParserResult parserResult) : base(parserResult, showOnConsoleDefault: false)
+        {
+            Visit();
+        }
+        public override void Visit()
+        {
+            base.Visit();
+        }
+        void SetColor(Parser.ParserResult node, bool backwards = false)
+        {
+            if (new string[] { "htmlOpenTag", "htmlCloseTag" }.Contains(node.Name))
+            {
+                Console.ForegroundColor = ConsoleColor.DarkGray;
+            }
+            else if (node.Name == "htmlAttribute")
+            {
+                if (backwards)
+                {
+                    Console.ForegroundColor = ConsoleColor.DarkGray;
+                }
+                else
+                {
+                    Console.ForegroundColor = ConsoleColor.DarkCyan;
+                }
+            }
+            else if (node.Name == "htmlTagName")
+            {
+                if (backwards) {
+                    Console.ForegroundColor = ConsoleColor.DarkGray;
+                }
+                else
+                {
+                    Console.ForegroundColor = ConsoleColor.Cyan;
+                }
+            }
+            else if (node.Name == "htmlInnerTagText")
+            {
+                Console.ForegroundColor = ConsoleColor.Gray;
+            }
+        }
+        public override void VisitSequenceNode(Parser.ParserResult node, int level = 0)
+        {
+            Nodes.Add((node.Name, "before"));
+            SetColor(node);
+            base.VisitSequenceNode(node, level);
+            SetColor(node, true);
+            Nodes.Add((node.Name, "after"));
+        }
+        public override void VisitToken(Lexer.Span span, int level = 0)
+        {
+            Nodes.Add(("token", span.Text));
+            if (span.Text == "=")
+            {
+                Console.ForegroundColor = ConsoleColor.Gray;
+                Console.Write(span.Text);
+            }
+            else if (span.Text == "\"")
+            {
+                Console.ForegroundColor = ConsoleColor.DarkYellow;
+                Console.Write(span.Text);
+                Console.ForegroundColor = ConsoleColor.Yellow;
+            }
+            else
+            {
+                Console.Write(span.Text);
+            }
+            base.VisitToken(span, level);
+        }
+    }
+
     class Program
     {
         static void Main(string[] args)
         {
+            Console.ForegroundColor = ConsoleColor.Gray;
             string defaultConfiguration = $"Configuration/Default.json";
             string userConfiguration = $"Configuration/ParserEBNF.json";
             Lexer lexer = new Lexer(defaultConfiguration, userConfiguration);
@@ -1597,23 +1671,27 @@ namespace LexerParser1
             //string inputEBNF2 = "PROGRAM BEGIN a:=5; b1:='Hurrooo'; b2:=\"Yay\"; b2 := a; END;";
 
             string htmlAttribute = @"htmlAttribute = whitespaces, identifier, ""="", [whitespaces], ebnfTerminalDoubleQuote;";
-            string htmlOpenTag = @"htmlOpenTag = ""<"", identifier, { htmlAttribute }, [whitespaces], "">"";";
-            string htmlCloseTag = @"htmlCloseTag = ""</"", identifier, "">"";";
+            string htmlTagName = @"htmlTagName = identifier;";
+            string htmlOpenTag = @"htmlOpenTag = ""<"", htmlTagName, { htmlAttribute }, [whitespaces], "">"";";
+            string htmlCloseTag = @"htmlCloseTag = ""</"", htmlTagName, "">"";";
             string htmlInnerTagText = @"htmlInnerTagText = %%letters|spaces|digits|whitespaces|semicolon|underscore|equals%%;";
             string htmlTag = @"htmlTag = htmlOpenTag, {htmlInnerTagText}, {htmlTag}, {htmlInnerTagText}, htmlCloseTag;";
 
             parser.AddEBNFRule(htmlAttribute);
+            parser.AddEBNFRule(htmlTagName);
             parser.AddEBNFRule(htmlOpenTag);
             parser.AddEBNFRule(htmlCloseTag);
             parser.AddEBNFRule(htmlInnerTagText);
             parser.AddEBNFRule(htmlTag);
 
-            string inputHtml = "<html><head><title>Title</title></head><body><h2>Helloooo hi</h2><div>Here is <span>some</span> text</div></body></html>";
+            string inputHtml = "<html><head><title>Title</title></head><body><h2>Helloooo hi</h2><div class=\"someClass\">Here is <span>some</span> text</div></body></html>";
             var result = parser.Parse(inputHtml, sequenceName: "htmlTag", showOnConsole: false);
             if (result.Matched)
             {
-                ParserResultWalker walker = new ParserResultWalker(result.Results[0], showOnConsoleDefault: true);
-                walker.Visit();
+                //ParserResultWalker walker = new ParserResultWalker(result.Results[0], showOnConsoleDefault: true);
+                //walker.Visit();
+
+                ConsoleWalker walker = new ConsoleWalker(result.Results[0]);
             }
         }
     }
