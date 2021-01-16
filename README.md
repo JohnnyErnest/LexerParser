@@ -1,5 +1,5 @@
 # LexerParser
-A C# Lexical Analyzer and Parser with JSON configuration and partial Extended Backus-Naur Form support (https://en.wikipedia.org/wiki/Extended_Backus%E2%80%93Naur_form) for parsing context-free grammars expressed in EBNF, or more directly from JSON configuration, from a user input text string or a document such as Html, CSS, SQL, expression calculators, etc.
+A C# Lexical Analyzer and Parser with JSON configuration and partial Extended Backus-Naur Form support (https://en.wikipedia.org/wiki/Extended_Backus%E2%80%93Naur_form) for parsing context-free grammars expressed in EBNF, or more directly albeit a in tad bit more verbose fashion from a JSON configuration, from a user input text string or a document such as Html, CSS, SQL, expression calculators, etc.
 
 **Usage**:
 
