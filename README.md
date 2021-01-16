@@ -51,7 +51,7 @@ Also note, in addition to EBNF operators { ... } for optional repeating blocks, 
 
 - Unit Testing
 - Nuget Packaging
-- Variable name capture support in EBNF, this is currently available in JSON with "varName" on sections you want to name, it means I would need to make more extensions to  Extended BNF.
+- Variable name capture support in EBNF, this is currently available in JSON with "varName" on sections you want to name, it means I would need to make more extensions to  Extended BNF, which, if anything, is a mild source of humor.
 
 **Output of Example Usage**:
 
