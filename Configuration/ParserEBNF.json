@@ -1,11 +1,28 @@
 {
   "userLexer": {
-    "symbol": "char_in:[]{}()<>'\"=|.,;"
+    "symbol": "char_in:[]{}()<>'\"=|.,;",
+    "strAssignment": "ci_string::=",
+    "strProgram": "ci_string:Program",
+    "strBegin": "ci_string:Begin",
+    "strEnd": "ci_string:End",
+    "strTripleColon": "ci_string::::",
+    "strRepeat": "ci_string:/Rep",
+    "strOptional": "ci_string:/Opt"
   },
   "parser": {
     "ebnfCharacter": {
       "sequence": [
-        { "tokenList": "letters,digits,underscore,specialNonQuotingNonEnclosure,whitespaces" }
+        { "tokenList": "letters,digits,underscore,specialNonQuoting,whitespaces" }
+      ]
+    },
+    "ebnfCharacters": {
+      "sequence": [
+        { "sequenceList": "ebnfCharacter" },
+        {
+          "sequenceList": "ebnfCharacter",
+          "isOptional": "true",
+          "isRepeating": "true"
+        }
       ]
     },
     "identifier": {
@@ -18,33 +35,119 @@
         }
       ]
     },
+    "ebnfIdentifierGroupPlaceholder": {
+      "sequence": [
+        { "sequenceList": "identifier" },
+        { "tokenList": "strTripleColon" },
+        { "sequenceList": "identifier" },
+        { "tokenList": "colon" },
+        { "tokenList": "digits" },
+        { "tokenList": "colon" },
+        { "tokenList": "digits" },
+        {
+          "tokenList": "strOptional",
+          "isOptional": "true"
+        },
+        {
+          "tokenList": "strRepeat",
+          "isOptional": "true"
+        }
+      ]
+    },
+    "number": {
+      "sequence": [
+        {
+          "tokenList": "hyphen",
+          "isOptional": "true"
+        },
+        {
+          "tokenList": "digit"
+        },
+        {
+          "tokenList": "digit",
+          "isOptional": "true",
+          "isRepeating": "true"
+        }
+      ]
+    },
     "ebnfTerminalQuote": {
       "sequence": [
         { "tokenList": "quote" },
-        { "sequenceList": "ebnfCharacter" },
-        {
-          "sequenceList": "ebnfCharacter",
-          "isOptional": "true",
-          "isRepeating": "true"
-        },
+        { "sequenceList": "ebnfCharacters" },
         { "tokenList": "quote" }
       ]
     },
     "ebnfTerminalDoubleQuote": {
       "sequence": [
         { "tokenList": "doubleQuote" },
-        { "sequenceList": "ebnfCharacter" },
-        {
-          "sequenceList": "ebnfCharacter",
-          "isOptional": "true",
-          "isRepeating": "true"
-        },
+        { "sequenceList": "ebnfCharacters" },
         { "tokenList": "doubleQuote" }
       ]
     },
     "ebnfTerminal": {
       "sequence": [
         { "sequenceList": "ebnfTerminalQuote,ebnfTerminalDoubleQuote" }
+      ]
+    },
+    "pascalString": {
+      "sequence": [
+        { "sequenceList": "ebnfTerminal" }
+      ]
+    },
+    "pascalLiteral": {
+      "sequence": [
+        { "sequenceList": "number,pascalString,identifier" }
+      ]
+    },
+    "pascalAssignment": {
+      "sequence": [
+        {
+          "tokenList": "whitespaces",
+          "isOptional": "true"
+        },
+        { "sequenceList": "identifier" },
+        {
+          "tokenList": "whitespaces",
+          "isOptional": "true"
+        },
+        { "tokenList": "strAssignment" },
+        {
+          "tokenList": "whitespaces",
+          "isOptional": "true"
+        },
+        { "sequenceList": "pascalLiteral" },
+        {
+          "tokenList": "whitespaces",
+          "isOptional": "true"
+        },
+        { "tokenList": "semicolon" },
+        {
+          "tokenList": "whitespaces",
+          "isOptional": "true"
+        }
+      ]
+    },
+    "pascalRule1": {
+      "sequence": [
+        {
+          "tokenList": "whitespaces",
+          "isOptional": "true"
+        },
+        { "tokenList": "strProgram" },
+        { "tokenList": "whitespaces" },
+        { "tokenList": "strBegin" },
+        { "tokenList": "whitespaces" },
+        {
+          "sequenceList": "pascalAssignment",
+          "isOptional": "true",
+          "isRepeating": "true"
+        },
+        { "tokenList": "strEnd" },
+        { "tokenList": "semicolon" },
+        {
+          "tokenList": "whitespaces",
+          "isOptional": "true"
+        }
       ]
     },
     "lhs": {
@@ -60,7 +163,12 @@
         }
       ]
     },
-    "rhsBlock1": {
+    "rhsValue": {
+      "sequence": [
+        { "sequenceList": "ebnfIdentifierGroupPlaceholder,identifier,ebnfTerminal" }
+      ]
+    },
+    "rhsBlockBracket": {
       "sequence": [
         {
           "tokenList": "whitespaces",
@@ -83,7 +191,7 @@
         }
       ]
     },
-    "rhsBlock2": {
+    "rhsBlockBrace": {
       "sequence": [
         {
           "tokenList": "whitespaces",
@@ -106,7 +214,7 @@
         }
       ]
     },
-    "rhsBlock3": {
+    "rhsBlockParenthesis": {
       "sequence": [
         {
           "tokenList": "whitespaces",
@@ -129,13 +237,93 @@
         }
       ]
     },
-    "rhsBlockPipe": {
+    "rhsBlockDoublePercent": {
       "sequence": [
         {
           "tokenList": "whitespaces",
           "isOptional": "true"
         },
+        { "tokenList": "percentSign" },
+        { "tokenList": "percentSign" },
+        {
+          "tokenList": "whitespaces",
+          "isOptional": "true"
+        },
         { "sequenceList": "rhs" },
+        {
+          "tokenList": "whitespaces",
+          "isOptional": "true"
+        },
+        { "tokenList": "percentSign" },
+        { "tokenList": "percentSign" },
+        {
+          "tokenList": "whitespaces",
+          "isOptional": "true"
+        }
+      ]
+    },
+    //"rhsBlockPipe": {
+    //  "sequence": [
+    //    {
+    //      "tokenList": "whitespaces",
+    //      "isOptional": "true"
+    //    },
+    //    { "sequenceList": "rhs" },
+    //    {
+    //      "tokenList": "whitespaces",
+    //      "isOptional": "true"
+    //    },
+    //    { "tokenList": "pipe" },
+    //    {
+    //      "tokenList": "whitespaces",
+    //      "isOptional": "true"
+    //    },
+    //    { "sequenceList": "rhs" },
+    //    {
+    //      "tokenList": "whitespaces",
+    //      "isOptional": "true"
+    //    }
+    //  ]
+    //},
+    //"rhsBlockComma": {
+    //  "sequence": [
+    //    {
+    //      "tokenList": "whitespaces",
+    //      "isOptional": "true"
+    //    },
+    //    { "sequenceList": "rhs" },
+    //    {
+    //      "tokenList": "whitespaces",
+    //      "isOptional": "true"
+    //    },
+    //    { "tokenList": "comma" },
+    //    {
+    //      "tokenList": "whitespaces",
+    //      "isOptional": "true"
+    //    },
+    //    { "sequenceList": "rhs" },
+    //    {
+    //      "tokenList": "whitespaces",
+    //      "isOptional": "true"
+    //    }
+    //  ]
+    //},
+    "rhsPrimary": {
+      "sequence": [
+        //{ "sequenceList": "rhsValue,rhsBlock1,rhsBlock2,rhsBlock3,rhsBlockPipe,rhsBlockComma" }
+        {
+          "tokenList": "whitespaces",
+          "isOptional": "true"
+        },
+        { "sequenceList": "rhsValue,rhsBlockBracket,rhsBlockBrace,rhsBlockParenthesis,rhsBlockDoublePercent" },
+        {
+          "tokenList": "whitespaces",
+          "isOptional": "true"
+        }
+      ]
+    },
+    "rhsPrimaryFactor1": {
+      "sequence": [
         {
           "tokenList": "whitespaces",
           "isOptional": "true"
@@ -145,20 +333,37 @@
           "tokenList": "whitespaces",
           "isOptional": "true"
         },
-        { "sequenceList": "rhs" },
+        { "sequenceList": "rhsPrimary" },
         {
           "tokenList": "whitespaces",
           "isOptional": "true"
         }
       ]
     },
-    "rhsBlockComma": {
+    "rhsFactor": {
       "sequence": [
         {
           "tokenList": "whitespaces",
           "isOptional": "true"
         },
-        { "sequenceList": "rhs" },
+        { "sequenceList": "rhsPrimary" },
+        {
+          "tokenList": "whitespaces",
+          "isOptional": "true"
+        },
+        {
+          "sequenceList": "rhsPrimaryFactor1",
+          "isOptional": "true",
+          "isRepeating": "true"
+        },
+        {
+          "tokenList": "whitespaces",
+          "isOptional": "true"
+        }
+      ]
+    },
+    "rhsPrimaryElement1": {
+      "sequence": [
         {
           "tokenList": "whitespaces",
           "isOptional": "true"
@@ -168,7 +373,7 @@
           "tokenList": "whitespaces",
           "isOptional": "true"
         },
-        { "sequenceList": "rhs" },
+        { "sequenceList": "rhsFactor" },
         {
           "tokenList": "whitespaces",
           "isOptional": "true"
@@ -177,7 +382,14 @@
     },
     "rhs": {
       "sequence": [
-        { "sequenceList": "identifier,ebnfTerminal,rhsBlock1,rhsBlock2,rhsBlock3,rhsBlockPipe,rhsBlockComma" }
+        { "sequenceList": "rhsFactor" },
+        {
+          "sequenceList": "rhsPrimaryElement1",
+          "isOptional": "true",
+          "isRepeating": "true"
+        }
+        //{ "sequenceList": "rhsValue,rhsBlock1,rhsBlock2,rhsBlock3,rhsBlockPipe,rhsBlockComma" }
+        //{ "sequenceList": "rhsValue,rhsBlock1,rhsBlock2,rhsBlock3" }
       ]
     },
     "rule": {
@@ -206,7 +418,10 @@
     },
     "grammar": {
       "sequence": [
-        { "sequenceList": "rule", "isOptional": "true", "isRepeating": "true" }
+        {
+          "sequenceList": "rule",
+          "isRepeating": "true"
+        }
       ]
     }
   }
