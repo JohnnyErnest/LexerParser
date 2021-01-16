@@ -41,15 +41,17 @@ Output is an indicator whether the input matched a parsing rule, as well as an A
 
 In laymen terms, you can parse an HTML to a syntax tree of nodes and analyze it, as in the usage example above. If you add the rules for CSS, SQL, and so on, you can do the same with the respective languages.
 
-Note that adding EBNF rules is a bit costly on performance because it currently reparses internal parts of text while adding subnodes such as "( nodes, nodes, nodes )", "[ nodes, nodes, nodes ]", and "{ nodes, nodes, nodes }" while adding subrules and replacing text internally. However, you could save a custom Lexer.Rules and Parser.Sequences to a serialized JSON and load them once at runtime if you have a set grammar that you want to pre-compile ahead of time and use for subsequent runs, which is most often the case. However, the flexibility is there to add EBNF rules directly at runtime for any specific use case you might have.
+Note that adding EBNF rules ay runtime is a bit costly on performance because it currently reparses internal parts of text while adding subnodes such as "( nodes, nodes, nodes )", "[ nodes, nodes, nodes ]", and "{ nodes, nodes, nodes }" while adding subrules and replacing text via substitution internally. 
 
-Also note, in addition to EBNF operators { ... } for optional repeating blocks, and [ ... ] for optional rule blocks, you can also use %% ... %% for mandatory repeating blocks.
+However, you could load up EBNF rules before-hand as you would with a third party tool like Yacc/Bison, and once precompiled you can serialized the custom Lexer.Rules and Parser.Sequences as they are runtime Objects to a serialized JSON and load them once at runtime on subsequent runs, if you have a set grammar that you want to pre-compile ahead of time, which is most often the case. However, the flexibility is there to add EBNF rules directly at runtime for any specific use case you might have, you can build new rules and test them at runtime in, say, a REPL shell.
+
+Also note, in addition to EBNF operators { ... } for optional repeating blocks, and [ ... ] for optional rule blocks that appear zero or one times, you can also use %% ... %% for mandatory repeating blocks that must appear at least once as an extension to Extended BNF.
 
 **To Do**
 
 - Unit Testing
 - Nuget Packaging
-- Variable name capture support in EBNF, this is currently available in JSON with "varName" on sections you want to name
+- Variable name capture support in EBNF, this is currently available in JSON with "varName" on sections you want to name, it means I would need to make more extensions to  Extended BNF.
 
 **Output of Example Usage**:
 
