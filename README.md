@@ -55,183 +55,183 @@ Adding EBNF rule:htmlOpenTag
 Adding EBNF rule:htmlCloseTag
 Adding EBNF rule:htmlInnerTagText
 Adding EBNF rule:htmlTag
-htmlTag
- htmlTag:::rule_main_block:0:0
-  htmlOpenTag
-   htmlOpenTag:::rule_main_block:0:0
-     strhtmlOpenTag:::ebnfTerminal:11:2 - <
-    identifier
-      letter - h
-      letter - t
-      letter - m
-      letter - l
-     strhtmlOpenTag:::ebnfTerminal:13:0 - >
-  htmlTag:::rhsBlockBrace:11:1
-   htmlTag
-    htmlTag:::rule_main_block:0:0
-     htmlOpenTag
-      htmlOpenTag:::rule_main_block:0:0
-        strhtmlOpenTag:::ebnfTerminal:11:2 - <
-       identifier
-         letter - h
-         letter - e
-         letter - a
-         letter - d
-        strhtmlOpenTag:::ebnfTerminal:13:0 - >
-     htmlTag:::rhsBlockBrace:11:1
-      htmlTag
-       htmlTag:::rule_main_block:0:0
-        htmlOpenTag
-         htmlOpenTag:::rule_main_block:0:0
-           strhtmlOpenTag:::ebnfTerminal:11:2 - <
-          identifier
-            letter - t
-            letter - i
-            letter - t
-            letter - l
-            letter - e
-           strhtmlOpenTag:::ebnfTerminal:13:0 - >
-        htmlTag:::rhsBlockBrace:11:0
-         htmlInnerTagText
-          htmlInnerTagText:::rule_main_block:0:0
-           htmlInnerTagText:::rhsBlockDoublePercent:9:0
-             letters - Title
-        htmlCloseTag
-         htmlCloseTag:::rule_main_block:0:0
-           strhtmlCloseTag:::ebnfTerminal:11:0 - </
-          identifier
-            letter - t
-            letter - i
-            letter - t
-            letter - l
-            letter - e
-           strhtmlCloseTag:::ebnfTerminal:13:0 - >
-     htmlCloseTag
-      htmlCloseTag:::rule_main_block:0:0
-        strhtmlCloseTag:::ebnfTerminal:11:0 - </
-       identifier
-         letter - h
-         letter - e
-         letter - a
-         letter - d
-        strhtmlCloseTag:::ebnfTerminal:13:0 - >
-  htmlTag:::rhsBlockBrace:11:1
-   htmlTag
-    htmlTag:::rule_main_block:0:0
-     htmlOpenTag
-      htmlOpenTag:::rule_main_block:0:0
-        strhtmlOpenTag:::ebnfTerminal:11:2 - <
-       identifier
-         letter - b
-         letter - o
-         letter - d
-         letter - y
-        strhtmlOpenTag:::ebnfTerminal:13:0 - >
-     htmlTag:::rhsBlockBrace:11:1
-      htmlTag
-       htmlTag:::rule_main_block:0:0
-        htmlOpenTag
-         htmlOpenTag:::rule_main_block:0:0
-           strhtmlOpenTag:::ebnfTerminal:11:2 - <
-          identifier
-            letter - h
-            digit - 2
-           strhtmlOpenTag:::ebnfTerminal:13:0 - >
-        htmlTag:::rhsBlockBrace:11:0
-         htmlInnerTagText
-          htmlInnerTagText:::rule_main_block:0:0
-           htmlInnerTagText:::rhsBlockDoublePercent:9:0
-             letters - Helloooo
-           htmlInnerTagText:::rhsBlockDoublePercent:9:0
-             spaces -
-           htmlInnerTagText:::rhsBlockDoublePercent:9:0
-             letters - hi
-        htmlCloseTag
-         htmlCloseTag:::rule_main_block:0:0
-           strhtmlCloseTag:::ebnfTerminal:11:0 - </
-          identifier
-            letter - h
-            digit - 2
-           strhtmlCloseTag:::ebnfTerminal:13:0 - >
-     htmlTag:::rhsBlockBrace:11:1
-      htmlTag
-       htmlTag:::rule_main_block:0:0
-        htmlOpenTag
-         htmlOpenTag:::rule_main_block:0:0
-           strhtmlOpenTag:::ebnfTerminal:11:2 - <
-          identifier
-            letter - d
-            letter - i
-            letter - v
-           strhtmlOpenTag:::ebnfTerminal:13:0 - >
-        htmlTag:::rhsBlockBrace:11:0
-         htmlInnerTagText
-          htmlInnerTagText:::rule_main_block:0:0
-           htmlInnerTagText:::rhsBlockDoublePercent:9:0
-             letters - Here
-           htmlInnerTagText:::rhsBlockDoublePercent:9:0
-             spaces -
-           htmlInnerTagText:::rhsBlockDoublePercent:9:0
-             letters - is
-           htmlInnerTagText:::rhsBlockDoublePercent:9:0
-             spaces -
-        htmlTag:::rhsBlockBrace:11:1
-         htmlTag
-          htmlTag:::rule_main_block:0:0
-           htmlOpenTag
-            htmlOpenTag:::rule_main_block:0:0
-              strhtmlOpenTag:::ebnfTerminal:11:2 - <
-             identifier
-               letter - s
-               letter - p
-               letter - a
-               letter - n
-              strhtmlOpenTag:::ebnfTerminal:13:0 - >
-           htmlTag:::rhsBlockBrace:11:0
-            htmlInnerTagText
-             htmlInnerTagText:::rule_main_block:0:0
-              htmlInnerTagText:::rhsBlockDoublePercent:9:0
-                letters - some
-           htmlCloseTag
-            htmlCloseTag:::rule_main_block:0:0
-              strhtmlCloseTag:::ebnfTerminal:11:0 - </
-             identifier
-               letter - s
-               letter - p
-               letter - a
-               letter - n
-              strhtmlCloseTag:::ebnfTerminal:13:0 - >
-        htmlTag:::rhsBlockBrace:11:2
-         htmlInnerTagText
-          htmlInnerTagText:::rule_main_block:0:0
-           htmlInnerTagText:::rhsBlockDoublePercent:9:0
-             spaces -
-           htmlInnerTagText:::rhsBlockDoublePercent:9:0
-             letters - text
-        htmlCloseTag
-         htmlCloseTag:::rule_main_block:0:0
-           strhtmlCloseTag:::ebnfTerminal:11:0 - </
-          identifier
-            letter - d
-            letter - i
-            letter - v
-           strhtmlCloseTag:::ebnfTerminal:13:0 - >
-     htmlCloseTag
-      htmlCloseTag:::rule_main_block:0:0
-        strhtmlCloseTag:::ebnfTerminal:11:0 - </
-       identifier
-         letter - b
-         letter - o
-         letter - d
-         letter - y
-        strhtmlCloseTag:::ebnfTerminal:13:0 - >
-  htmlCloseTag
-   htmlCloseTag:::rule_main_block:0:0
-     strhtmlCloseTag:::ebnfTerminal:11:0 - </
-    identifier
-      letter - h
-      letter - t
-      letter - m
-      letter - l
-     strhtmlCloseTag:::ebnfTerminal:13:0 - >
+Node: htmlTag, InnerText: <html><head><title>Title</title></head><body><h2>Helloooo hi</h2><div>Here is <span>some</span> text</div></body></html>
+ Node: htmlTag:::rule_main_block:0:0, InnerText: <html><head><title>Title</title></head><body><h2>Helloooo hi</h2><div>Here is <span>some</span> text</div></body></html>
+  Node: htmlOpenTag, InnerText: <html>
+   Node: htmlOpenTag:::rule_main_block:0:0, InnerText: <html>
+     Token: strhtmlOpenTag:::ebnfTerminal:11:2 - <
+    Node: identifier, InnerText: html
+      Token: letter - h
+      Token: letter - t
+      Token: letter - m
+      Token: letter - l
+     Token: strhtmlOpenTag:::ebnfTerminal:13:0 - >
+  Node: htmlTag:::rhsBlockBrace:11:1, InnerText: <head><title>Title</title></head>
+   Node: htmlTag, InnerText: <head><title>Title</title></head>
+    Node: htmlTag:::rule_main_block:0:0, InnerText: <head><title>Title</title></head>
+     Node: htmlOpenTag, InnerText: <head>
+      Node: htmlOpenTag:::rule_main_block:0:0, InnerText: <head>
+        Token: strhtmlOpenTag:::ebnfTerminal:11:2 - <
+       Node: identifier, InnerText: head
+         Token: letter - h
+         Token: letter - e
+         Token: letter - a
+         Token: letter - d
+        Token: strhtmlOpenTag:::ebnfTerminal:13:0 - >
+     Node: htmlTag:::rhsBlockBrace:11:1, InnerText: <title>Title</title>
+      Node: htmlTag, InnerText: <title>Title</title>
+       Node: htmlTag:::rule_main_block:0:0, InnerText: <title>Title</title>
+        Node: htmlOpenTag, InnerText: <title>
+         Node: htmlOpenTag:::rule_main_block:0:0, InnerText: <title>
+           Token: strhtmlOpenTag:::ebnfTerminal:11:2 - <
+          Node: identifier, InnerText: title
+            Token: letter - t
+            Token: letter - i
+            Token: letter - t
+            Token: letter - l
+            Token: letter - e
+           Token: strhtmlOpenTag:::ebnfTerminal:13:0 - >
+        Node: htmlTag:::rhsBlockBrace:11:0, InnerText: Title
+         Node: htmlInnerTagText, InnerText: Title
+          Node: htmlInnerTagText:::rule_main_block:0:0, InnerText: Title
+           Node: htmlInnerTagText:::rhsBlockDoublePercent:9:0, InnerText: Title
+             Token: letters - Title
+        Node: htmlCloseTag, InnerText: </title>
+         Node: htmlCloseTag:::rule_main_block:0:0, InnerText: </title>
+           Token: strhtmlCloseTag:::ebnfTerminal:11:0 - </
+          Node: identifier, InnerText: title
+            Token: letter - t
+            Token: letter - i
+            Token: letter - t
+            Token: letter - l
+            Token: letter - e
+           Token: strhtmlCloseTag:::ebnfTerminal:13:0 - >
+     Node: htmlCloseTag, InnerText: </head>
+      Node: htmlCloseTag:::rule_main_block:0:0, InnerText: </head>
+        Token: strhtmlCloseTag:::ebnfTerminal:11:0 - </
+       Node: identifier, InnerText: head
+         Token: letter - h
+         Token: letter - e
+         Token: letter - a
+         Token: letter - d
+        Token: strhtmlCloseTag:::ebnfTerminal:13:0 - >
+  Node: htmlTag:::rhsBlockBrace:11:1, InnerText: <body><h2>Helloooo hi</h2><div>Here is <span>some</span> text</div></body>
+   Node: htmlTag, InnerText: <body><h2>Helloooo hi</h2><div>Here is <span>some</span> text</div></body>
+    Node: htmlTag:::rule_main_block:0:0, InnerText: <body><h2>Helloooo hi</h2><div>Here is <span>some</span> text</div></body>
+     Node: htmlOpenTag, InnerText: <body>
+      Node: htmlOpenTag:::rule_main_block:0:0, InnerText: <body>
+        Token: strhtmlOpenTag:::ebnfTerminal:11:2 - <
+       Node: identifier, InnerText: body
+         Token: letter - b
+         Token: letter - o
+         Token: letter - d
+         Token: letter - y
+        Token: strhtmlOpenTag:::ebnfTerminal:13:0 - >
+     Node: htmlTag:::rhsBlockBrace:11:1, InnerText: <h2>Helloooo hi</h2>
+      Node: htmlTag, InnerText: <h2>Helloooo hi</h2>
+       Node: htmlTag:::rule_main_block:0:0, InnerText: <h2>Helloooo hi</h2>
+        Node: htmlOpenTag, InnerText: <h2>
+         Node: htmlOpenTag:::rule_main_block:0:0, InnerText: <h2>
+           Token: strhtmlOpenTag:::ebnfTerminal:11:2 - <
+          Node: identifier, InnerText: h2
+            Token: letter - h
+            Token: digit - 2
+           Token: strhtmlOpenTag:::ebnfTerminal:13:0 - >
+        Node: htmlTag:::rhsBlockBrace:11:0, InnerText: Helloooo hi
+         Node: htmlInnerTagText, InnerText: Helloooo hi
+          Node: htmlInnerTagText:::rule_main_block:0:0, InnerText: Helloooo hi
+           Node: htmlInnerTagText:::rhsBlockDoublePercent:9:0, InnerText: Helloooo
+             Token: letters - Helloooo
+           Node: htmlInnerTagText:::rhsBlockDoublePercent:9:0, InnerText:
+             Token: spaces -
+           Node: htmlInnerTagText:::rhsBlockDoublePercent:9:0, InnerText: hi
+             Token: letters - hi
+        Node: htmlCloseTag, InnerText: </h2>
+         Node: htmlCloseTag:::rule_main_block:0:0, InnerText: </h2>
+           Token: strhtmlCloseTag:::ebnfTerminal:11:0 - </
+          Node: identifier, InnerText: h2
+            Token: letter - h
+            Token: digit - 2
+           Token: strhtmlCloseTag:::ebnfTerminal:13:0 - >
+     Node: htmlTag:::rhsBlockBrace:11:1, InnerText: <div>Here is <span>some</span> text</div>
+      Node: htmlTag, InnerText: <div>Here is <span>some</span> text</div>
+       Node: htmlTag:::rule_main_block:0:0, InnerText: <div>Here is <span>some</span> text</div>
+        Node: htmlOpenTag, InnerText: <div>
+         Node: htmlOpenTag:::rule_main_block:0:0, InnerText: <div>
+           Token: strhtmlOpenTag:::ebnfTerminal:11:2 - <
+          Node: identifier, InnerText: div
+            Token: letter - d
+            Token: letter - i
+            Token: letter - v
+           Token: strhtmlOpenTag:::ebnfTerminal:13:0 - >
+        Node: htmlTag:::rhsBlockBrace:11:0, InnerText: Here is
+         Node: htmlInnerTagText, InnerText: Here is
+          Node: htmlInnerTagText:::rule_main_block:0:0, InnerText: Here is
+           Node: htmlInnerTagText:::rhsBlockDoublePercent:9:0, InnerText: Here
+             Token: letters - Here
+           Node: htmlInnerTagText:::rhsBlockDoublePercent:9:0, InnerText:
+             Token: spaces -
+           Node: htmlInnerTagText:::rhsBlockDoublePercent:9:0, InnerText: is
+             Token: letters - is
+           Node: htmlInnerTagText:::rhsBlockDoublePercent:9:0, InnerText:
+             Token: spaces -
+        Node: htmlTag:::rhsBlockBrace:11:1, InnerText: <span>some</span>
+         Node: htmlTag, InnerText: <span>some</span>
+          Node: htmlTag:::rule_main_block:0:0, InnerText: <span>some</span>
+           Node: htmlOpenTag, InnerText: <span>
+            Node: htmlOpenTag:::rule_main_block:0:0, InnerText: <span>
+              Token: strhtmlOpenTag:::ebnfTerminal:11:2 - <
+             Node: identifier, InnerText: span
+               Token: letter - s
+               Token: letter - p
+               Token: letter - a
+               Token: letter - n
+              Token: strhtmlOpenTag:::ebnfTerminal:13:0 - >
+           Node: htmlTag:::rhsBlockBrace:11:0, InnerText: some
+            Node: htmlInnerTagText, InnerText: some
+             Node: htmlInnerTagText:::rule_main_block:0:0, InnerText: some
+              Node: htmlInnerTagText:::rhsBlockDoublePercent:9:0, InnerText: some
+                Token: letters - some
+           Node: htmlCloseTag, InnerText: </span>
+            Node: htmlCloseTag:::rule_main_block:0:0, InnerText: </span>
+              Token: strhtmlCloseTag:::ebnfTerminal:11:0 - </
+             Node: identifier, InnerText: span
+               Token: letter - s
+               Token: letter - p
+               Token: letter - a
+               Token: letter - n
+              Token: strhtmlCloseTag:::ebnfTerminal:13:0 - >
+        Node: htmlTag:::rhsBlockBrace:11:2, InnerText:  text
+         Node: htmlInnerTagText, InnerText:  text
+          Node: htmlInnerTagText:::rule_main_block:0:0, InnerText:  text
+           Node: htmlInnerTagText:::rhsBlockDoublePercent:9:0, InnerText:
+             Token: spaces -
+           Node: htmlInnerTagText:::rhsBlockDoublePercent:9:0, InnerText: text
+             Token: letters - text
+        Node: htmlCloseTag, InnerText: </div>
+         Node: htmlCloseTag:::rule_main_block:0:0, InnerText: </div>
+           Token: strhtmlCloseTag:::ebnfTerminal:11:0 - </
+          Node: identifier, InnerText: div
+            Token: letter - d
+            Token: letter - i
+            Token: letter - v
+           Token: strhtmlCloseTag:::ebnfTerminal:13:0 - >
+     Node: htmlCloseTag, InnerText: </body>
+      Node: htmlCloseTag:::rule_main_block:0:0, InnerText: </body>
+        Token: strhtmlCloseTag:::ebnfTerminal:11:0 - </
+       Node: identifier, InnerText: body
+         Token: letter - b
+         Token: letter - o
+         Token: letter - d
+         Token: letter - y
+        Token: strhtmlCloseTag:::ebnfTerminal:13:0 - >
+  Node: htmlCloseTag, InnerText: </html>
+   Node: htmlCloseTag:::rule_main_block:0:0, InnerText: </html>
+     Token: strhtmlCloseTag:::ebnfTerminal:11:0 - </
+    Node: identifier, InnerText: html
+      Token: letter - h
+      Token: letter - t
+      Token: letter - m
+      Token: letter - l
+     Token: strhtmlCloseTag:::ebnfTerminal:13:0 - >
 ```
