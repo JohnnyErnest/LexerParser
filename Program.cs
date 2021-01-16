@@ -287,14 +287,14 @@ namespace LexerParser1
             }
             return rules;
         }
-        public Lexer(JObject lexer, JObject userLexer)
+        void Init(JObject lexer, JObject userLexer)
         {
             Rules = GetRules(lexer);
             if (userLexer != null)
             {
                 Rules.AddRange(GetRules(userLexer));
             }
-            for (int i=0; i<Rules.Count; i++)
+            for (int i = 0; i < Rules.Count; i++)
             {
                 if (Rules[i].RuleType == "RuleLookup")
                 {
@@ -302,16 +302,32 @@ namespace LexerParser1
                 }
                 if (Rules[i].RuleType == "RuleCollection")
                 {
-                    for (int i2=0; i2<(Rules[i] as LexerRules.RuleCollectionRule).Rules.Length; i2++)
+                    for (int i2 = 0; i2 < (Rules[i] as LexerRules.RuleCollectionRule).Rules.Length; i2++)
                     {
                         ((Rules[i] as LexerRules.RuleCollectionRule).Rules[i2] as LexerRules.ILexerLookup).LookupRule(Rules);
-                    }                    
+                    }
                 }
                 if (Rules[i].RuleType == "RepeatRule")
                 {
                     (Rules[i] as LexerRules.ILexerLookup).LookupRule(Rules);
                 }
             }
+        }
+        public Lexer(string defaultConfigurationFile, string userConfigurationFile)
+        {
+            string defaultConfig = File.ReadAllText(defaultConfigurationFile);
+            dynamic defaultObj = JsonConvert.DeserializeObject<dynamic>(defaultConfig);
+            JObject lexerRules = defaultObj.lexer as JObject;
+
+            string userConfig = File.ReadAllText(userConfigurationFile);
+            dynamic userObj = JsonConvert.DeserializeObject<dynamic>(userConfig);
+            JObject lexerUserRules = userObj.userLexer as JObject;
+
+            Init(lexerRules, lexerUserRules);
+        }
+        public Lexer(JObject lexer, JObject userLexer)
+        {
+            Init(lexer, userLexer);
         }
         List<LexerRules.ILexerRule> ProcessRules(string input)
         {
@@ -787,6 +803,16 @@ namespace LexerParser1
             UseLogging = useLogging;
             InputLexer = lexer;
             InitParser(parser);
+        }
+        public Parser(Lexer lexer, string parserConfigurationFile, bool useLogging = false)
+        {
+            string config = File.ReadAllText(parserConfigurationFile);
+            dynamic parserObj = JsonConvert.DeserializeObject<dynamic>(config);
+            JObject parserSequences = parserObj.parser as JObject;
+
+            UseLogging = useLogging;
+            InputLexer = lexer;
+            InitParser(parserSequences);
         }
         void InitParser(JObject parser)
         {
@@ -1518,66 +1544,16 @@ namespace LexerParser1
     {
         static void Main(string[] args)
         {
-            string defaultConfig = File.ReadAllText($"Configuration/Default.json");
-            dynamic defaultObj = JsonConvert.DeserializeObject<dynamic>(defaultConfig);
-            JObject lexerRules = defaultObj.lexer as JObject;
+            string defaultConfiguration = $"Configuration/Default.json";
+            string userConfiguration = $"Configuration/ParserEBNF.json";
+            Lexer lexer = new Lexer(defaultConfiguration, userConfiguration);
+            Parser parser = new Parser(lexer, userConfiguration);
 
-            string CSSConfig = File.ReadAllText($"Configuration/ParserCSS.json");
-            string SQLConfig = File.ReadAllText($"Configuration/ParserSQL.json");
-            string HtmlConfig = File.ReadAllText($"Configuration/ParserHtml.json");
-            string JsConfig = File.ReadAllText($"Configuration/ParserJS.json");
-            string EBNFConfig = File.ReadAllText($"Configuration/ParserEBNF.json");
-
-            dynamic htmlObj = JsonConvert.DeserializeObject<dynamic>(HtmlConfig);
-            dynamic sqlObj = JsonConvert.DeserializeObject<dynamic>(SQLConfig);
-            dynamic cssObj = JsonConvert.DeserializeObject<dynamic>(CSSConfig);
-            dynamic jsObj = JsonConvert.DeserializeObject<dynamic>(JsConfig);
-            dynamic ebnfObj = JsonConvert.DeserializeObject<dynamic>(EBNFConfig);
-
-            JObject htmlParserRules = htmlObj.parser as JObject;
-
-            JObject sqlUserLexer = sqlObj.userLexer as JObject;
-            JObject sqlParserRules = sqlObj.parser as JObject;
-
-            JObject cssParserRules = cssObj.parser as JObject;
-
-            JObject jsUserLexer = jsObj.userLexer as JObject;
-            JObject jsParserRules = jsObj.parser as JObject;
-
-            JObject ebnfUserLexer = ebnfObj.userLexer as JObject;
-            JObject ebnfParserRules = ebnfObj.parser as JObject;
-
-            Lexer htmlLexer = new Lexer(lexerRules, null);
-            Lexer sqlLexer = new Lexer(lexerRules, sqlUserLexer);
-            Lexer cssLexer = new Lexer(lexerRules, null);
-            Lexer jsLexer = new Lexer(lexerRules, jsUserLexer);
-            Lexer ebnfLexer = new Lexer(lexerRules, ebnfUserLexer);
-
-            Parser htmlParser = new Parser(htmlLexer, htmlParserRules);
-            Parser sqlParser = new Parser(sqlLexer, sqlParserRules);
-            Parser cssParser = new Parser(cssLexer, cssParserRules);
-            Parser jsParser = new Parser(jsLexer, jsParserRules);
-            Parser ebnfParser = new Parser(ebnfLexer, ebnfParserRules);
-
-            string inputSql = "select column1, column2 as c2 from _yay";
-            string inputCss = "body { background-color: #512fff; margin-left: auto; color: '#123456'; } h2 { color: 'blue'; }";
-            string inputJs = "var i = \"Hello\"; var x=5;";
+            //string inputSql = "select column1, column2 as c2 from _yay";
+            //string inputCss = "body { background-color: #512fff; margin-left: auto; color: '#123456'; } h2 { color: 'blue'; }";
+            //string inputJs = "var i = \"Hello\"; var x=5;";
             //string inputEBNF = "a=\"5\";";
-
-            //var htmlParserResult = htmlParser.Parse(inputHtml);
-            //var sqlParserResult = sqlParser.Parse(inputSql);
-            //var cssParserResult = cssParser.Parse(inputCss);
-            //var jsParserResult = jsParser.Parse(inputJs);
-
-            //var ebnfParserResult = ebnfParser.Parse(inputEBNF, "rule");
-
             //string inputEBNF2 = "PROGRAM BEGIN a:=5; b1:='Hurrooo'; b2:=\"Yay\"; b2 := a; END;";
-
-            //string inputEBNF = "id1 = {something}, id2, {some, more, rules, 'wh{oa', [here, and, here, (and|even|here), \"much string\"]};";
-
-            //string inputEBNF = "id1 = \"<\", identifier, \">\", \" \", \"<\", \"/\", identifier, \">\";";
-            //string inputBackup = inputEBNF;
-            //ebnfParser.AddEBNFRule(inputEBNF);
 
             string htmlAttribute = @"htmlAttribute = whitespaces, identifier, ""="", [whitespaces], ebnfTerminalDoubleQuote;";
             string htmlOpenTag = @"htmlOpenTag = ""<"", identifier, { htmlAttribute }, [whitespaces], "">"";";
@@ -1585,14 +1561,14 @@ namespace LexerParser1
             string htmlInnerTagText = @"htmlInnerTagText = %%letters|spaces|digits|whitespaces|semicolon|underscore|equals%%;";
             string htmlTag = @"htmlTag = htmlOpenTag, {htmlInnerTagText}, {htmlTag}, {htmlInnerTagText}, htmlCloseTag;";
 
-            ebnfParser.AddEBNFRule(htmlAttribute);
-            ebnfParser.AddEBNFRule(htmlOpenTag);
-            ebnfParser.AddEBNFRule(htmlCloseTag);
-            ebnfParser.AddEBNFRule(htmlInnerTagText);
-            ebnfParser.AddEBNFRule(htmlTag);
+            parser.AddEBNFRule(htmlAttribute);
+            parser.AddEBNFRule(htmlOpenTag);
+            parser.AddEBNFRule(htmlCloseTag);
+            parser.AddEBNFRule(htmlInnerTagText);
+            parser.AddEBNFRule(htmlTag);
 
             string inputHtml = "<html><head><title>Title</title></head><body><h2>Helloooo hi</h2><div>Here is <span>some</span> text</div></body></html>";
-            var result = ebnfParser.Parse(inputHtml, sequenceName: "htmlTag", showOnConsole: false);
+            var result = parser.Parse(inputHtml, sequenceName: "htmlTag", showOnConsole: false);
         }
     }
 }
