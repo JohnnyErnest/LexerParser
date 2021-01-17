@@ -38,9 +38,8 @@ namespace LexerParser1
 
                 public bool Evaluate(string input)
                 {
-                    if (input.Length == 0) return false;
-                    if (input.Length > 1) return false;
-                    return (input == Token.ToString());
+                    if (input.Length == 0 || input.Length > 1) return false;
+                    return input[0].Equals(Token);
                 }
 
                 public override string ToString()
@@ -78,7 +77,8 @@ namespace LexerParser1
                 public string Token { get; set; }
                 public bool Evaluate(string input)
                 {
-                    return input.ToLower() == Token.ToLower();
+                    return input.Equals(Token, StringComparison.OrdinalIgnoreCase);
+                    //return input.ToLower() == Token.ToLower();
                 }
                 public CaseInsensitiveStringLexerRule(string ruleName, string input)
                 {
@@ -186,6 +186,7 @@ namespace LexerParser1
                     foreach (var c in input)
                     {
                         if (!Rule.Evaluate(c.ToString())) { return false; }
+                        //if (!Rule.Evaluate(new string(c,1))) { return false; }
                     }
                     return true;
                 }
@@ -259,7 +260,7 @@ namespace LexerParser1
                 }
                 else
                 {
-
+                    throw new Exception("Error determining rule: " + val);
                 }
             }
             return null;
@@ -331,16 +332,7 @@ namespace LexerParser1
         }
         List<LexerRules.ILexerRule> ProcessRules(string input)
         {
-            List<LexerRules.ILexerRule> rules = new List<LexerRules.ILexerRule>();
-            foreach (var r in Rules)
-            {
-                if (r.Evaluate(input))
-                {
-                    //Console.WriteLine($"Rule Passed:{r.RuleType}/{r.RuleName}, {input}");
-                    rules.Add(r);
-                }
-            }
-            return rules;
+            return Rules.Where(x => x.Evaluate(input)).ToList();
         }
         public LexerResult GetSpans(string input)
         {
@@ -375,28 +367,32 @@ namespace LexerParser1
                 len1++;
             }
             spans = spans.OrderByDescending(x => x.Length).OrderBy(x => x.Start).ThenByDescending(x => x.Rule.Ordinal).ToList();
-            List<Span> singularSpans = spans.Where(x => x.Length == 1).OrderBy(x => x.Start).ThenByDescending(x => x.Rule.Ordinal).ToList();
-            //spans = spans.Where(x => x.Length > 1).ToList();
+            int whoa_idx = 0;
 
-            List<(int, Span)> spans2 = new List<(int, Span)>();
-
-            for (int i=0;i<spans.Count;i++)
+            var whoa = spans.Where(x => x.Rule.RuleType == "RepeatRule").Select(x => new { idx = whoa_idx++, start = x.Start, end = x.End, len = x.Length, x }).ToList();
+            bool doneWhoa = false;
+            whoa_idx = 0;
+            while(!doneWhoa)
             {
-                for(int i2=i+1;i2<spans.Count;i2++)
+                if (whoa_idx >= whoa.Count) { doneWhoa = true; }
+                else
                 {
-                    if (spans[i2].Rule.RuleName == spans[i].Rule.RuleName &&
-                        spans[i2].Start >= spans[i].Start &&
-                        (spans[i2].Start + spans[i2].Length) <= (spans[i].Start + spans[i].Length)
-                        )
-                    {
-                        if (spans2.Count(x => x.Item1 == i2) == 0)
-                        {
-                            spans2.Add((i2, spans[i2]));
-                        }
-                    }
+                    var current = whoa[whoa_idx];
+                    whoa.RemoveAll(x => x != current && x.start >= current.start && x.end <= current.end);
+                    whoa_idx++;
                 }
             }
-            foreach (var span in spans2.OrderByDescending(x => x.Item1))
+            List<Span> res1 = new List<Span>();
+            res1.AddRange(whoa.Select(x => x.x).ToArray());
+            res1.AddRange(spans.Where(x => x.Rule.RuleType != "RepeatRule").ToArray());
+            //var whoa_c = spans.Where(x => x.Rule.RuleType != "RepeatRule").ToArray();
+
+            List<Span> singularSpans = spans.Where(x => x.Length == 1).OrderBy(x => x.Start).ThenByDescending(x => x.Rule.Ordinal).ToList();
+
+            List<(int, Span)> spans2 = new List<(int, Span)>();
+            (int, Span)[] spans2_a = new (int, Span)[0];
+
+            foreach (var span in spans2_a.OrderByDescending(x => x.Item1))
             {
                 spans.RemoveAt(span.Item1);
             }
@@ -739,9 +735,9 @@ namespace LexerParser1
                 }
                 return results;
             }
-            public List<(string identifierName, ParserResult result, List<(string idName, bool contains, bool containedBy, bool isSameNode)> containerInfo)> GetEBNFGroupsWithContainmentMap(string identifierName)
+            public List<(string identifierName, ParserResult result, List<(string idName, bool contains, bool containedBy, bool isSameNode)> containerInfo)> GetEBNFGroupsWithContainmentMap(string identifierName, bool includeStringLiterals = false)
             {
-                var res1 = GetEBNFGroups(identifierName, false);
+                var res1 = GetEBNFGroups(identifierName, includeStringLiterals);
                 List<(string identifierName, ParserResult result, List<(string idName, bool contains, bool containedBy, bool isSameNode)>)> results = new List<(string, ParserResult, List<(string, bool, bool, bool)>)>();
                 for(int i=0;i<res1.Count;i++)
                 {
@@ -1299,6 +1295,14 @@ namespace LexerParser1
                     {
                         sequences.Add(choice);
                     }
+                    else if (choice.StartsWith("&"))
+                    {
+                        sequences.Add(choice.Replace("&",""));
+                    }
+                    else if (choice.StartsWith("@"))
+                    {
+                        tokens.Add(choice.Replace("@", ""));
+                    }
                     else
                     {
                         unknowns.Add(choice);
@@ -1339,6 +1343,34 @@ namespace LexerParser1
                 Sequences.RemoveAt(removeList[i].Item1);
             }
 
+        }
+        public void EBNFReplacement(string input)
+        {
+            var firstResult = Parse(input, sequenceName: "rule");
+            if (firstResult.Matched)
+            {
+                Console.WriteLine($"Original:'{input}' Length:{input.Length}");
+
+                // Get lhs Identifier Name
+                var identifier = firstResult.Results[0].GetDescendantsOfType(new string[] { "lhs" })[0].InnerResultsText.Trim();
+                // Get EBNF Groups and ensure valid names
+                (string identifierName, ParserResult result, List<(string idName, bool contains, bool containedBy, bool isSameNode)> containrInfo)[] firstDescendants = firstResult.Results[0].GetEBNFGroupsWithContainmentMap(identifier, true).OrderBy(x => x.Item2.MinStart()).ToArray();
+                List<(bool finished, 
+                    (string identifierName, ParserResult result, 
+                    List<(string idName, bool contains, bool containedBy, bool isSameNode)> containrInfo) node
+                    )> finishedList = new List<(bool, (string identifierName, ParserResult result, List<(string idName, bool contains, bool containedBy, bool isSameNode)> containrInfo) node)>();
+                for (int i = 0; i < firstDescendants.Length; i++)
+                {
+                    finishedList.Add((false, firstDescendants[i]));
+
+                    Console.WriteLine($"ID:'{finishedList[i].node.identifierName}', IRText:'{finishedList[i].node.result.InnerResultsText}', Start/End/Length:{finishedList[i].node.result.MinStart()}/{finishedList[i].node.result.MaxEnd()}/{(finishedList[i].node.result.MaxEnd() - finishedList[i].node.result.MinStart())}");
+
+                    foreach(var c in finishedList[i].node.containrInfo)
+                    {
+                        Console.WriteLine($"- Id:'{c.idName}', Contains:{c.contains}, ContainBy:{c.containedBy}, Same:{c.isSameNode}");
+                    }
+                }
+            }
         }
         public void AddEBNFRule(string inputEBNF)
         {
@@ -1447,7 +1479,14 @@ namespace LexerParser1
                         //var originalItem = original.node;
 
                         var item = descendantsCurrent;
-                        var original = finishedList.Where(x => x.node.InnerResultsText == item.Item2.InnerResultsText && x.finished == false).FirstOrDefault();
+                        //var original = finishedList.Where(x => x.node.InnerResultsText == item.Item2.InnerResultsText && x.finished == false).FirstOrDefault();
+                        var original = finishedList.Where(x => x.finished == false &&
+                            x.node.Parent.Node.Level == item.result.Parent.Node.Level && 
+                            x.node.Parent.Node.Name == item.result.Parent.Node.Name).FirstOrDefault();
+                        if (original.node == null)
+                        {
+                            throw new Exception("An errror happened when adding a rule sequence.");
+                        }
                         var originalItem = original.node;
 
                         var resOuter = item.result;
@@ -1456,7 +1495,7 @@ namespace LexerParser1
                         string textOuter = resOuter.InnerResultsText;
                         int textOuterLen = textOuter.Length;
                         
-                        var resInner = resOuter.InnerResults.Where(x => x.Name.Contains("whitespace") == false).ToArray();
+                        var resInner = resOuter.InnerResults.Where(x => x.Name == "rhs").ToArray();
                         int minInner = resInner.Min(x => x.MinStart());
                         int maxInner = resInner.Max(x => x.MaxEnd());
                         string textInner = "";
@@ -1569,6 +1608,10 @@ namespace LexerParser1
                 {
                     VisitSequenceNode(item, level + 1);
                 }
+                if (ShowOnConsoleDefault)
+                {
+                    Console.WriteLine($"{levelString}Return from Node:{node.Name}, End:{node.MaxEnd()}, InnerText:{node.InnerResultsText}");
+                }
             }
         }
         public virtual void VisitToken(Lexer.Span span, int level = 0)
@@ -1580,7 +1623,6 @@ namespace LexerParser1
             }
         }
     }
-
     public class ConsoleWalker : ParserResultWalker
     {
         public List<(string, string)> Nodes = new List<(string, string)>();
@@ -1621,7 +1663,7 @@ namespace LexerParser1
             }
             else if (node.Name == "htmlInnerTagText")
             {
-                Console.ForegroundColor = ConsoleColor.Gray;
+                Console.ForegroundColor = ConsoleColor.White;
             }
         }
         public override void VisitSequenceNode(Parser.ParserResult node, int level = 0)
@@ -1653,7 +1695,6 @@ namespace LexerParser1
             base.VisitToken(span, level);
         }
     }
-
     class Program
     {
         static void Main(string[] args)
@@ -1670,12 +1711,14 @@ namespace LexerParser1
             //string inputEBNF = "a=\"5\";";
             //string inputEBNF2 = "PROGRAM BEGIN a:=5; b1:='Hurrooo'; b2:=\"Yay\"; b2 := a; END;";
 
-            string htmlAttribute = @"htmlAttribute = whitespaces, identifier, ""="", [whitespaces], ebnfTerminalDoubleQuote;";
+            string htmlAttribute = @"htmlAttribute = whitespaces, identifier, { [whitespaces], ""="", [whitespaces], ebnfTerminalDoubleQuote };";
             string htmlTagName = @"htmlTagName = identifier;";
             string htmlOpenTag = @"htmlOpenTag = ""<"", htmlTagName, { htmlAttribute }, [whitespaces], "">"";";
             string htmlCloseTag = @"htmlCloseTag = ""</"", htmlTagName, "">"";";
-            string htmlInnerTagText = @"htmlInnerTagText = %%letters|spaces|digits|whitespaces|semicolon|underscore|equals%%;";
+            string htmlInnerTagText = @"htmlInnerTagText = %% letters|spaces|digits|whitespaces|semicolon|underscore|equals %%;";
             string htmlTag = @"htmlTag = htmlOpenTag, {htmlInnerTagText}, {htmlTag}, {htmlInnerTagText}, htmlCloseTag;";
+
+            //parser.EBNFReplacement(htmlAttribute);
 
             parser.AddEBNFRule(htmlAttribute);
             parser.AddEBNFRule(htmlTagName);
@@ -1684,14 +1727,36 @@ namespace LexerParser1
             parser.AddEBNFRule(htmlInnerTagText);
             parser.AddEBNFRule(htmlTag);
 
-            string inputHtml = "<html><head><title>Title</title></head><body><h2>Helloooo hi</h2><div class=\"someClass\">Here is <span>some</span> text</div></body></html>";
+            string inputHtml = "<html><head><title>Title</title></head><body><h2 selected>Helloooo hi</h2><div class=\"someClass\">Here is <span>some</span> text</div></body></html>";
             var result = parser.Parse(inputHtml, sequenceName: "htmlTag", showOnConsole: false);
             if (result.Matched)
             {
-                //ParserResultWalker walker = new ParserResultWalker(result.Results[0], showOnConsoleDefault: true);
-                //walker.Visit();
+                ParserResultWalker walker = new ParserResultWalker(result.Results[0], showOnConsoleDefault: true);
+                walker.Visit();
 
-                ConsoleWalker walker = new ConsoleWalker(result.Results[0]);
+                Console.WriteLine();
+                ConsoleWalker walker2 = new ConsoleWalker(result.Results[0]);
+                Console.ForegroundColor = ConsoleColor.Gray;
+                Console.WriteLine();
+            }
+            Console.ForegroundColor = ConsoleColor.Gray;
+
+            string ruleNum = "ruleNum = %% digits %%;";
+            string ruleFactor = "ruleFactor = ['-'], (ruleNum | ('(', &ruleExpr, ')'));";
+            string ruleTerm = "ruleTerm = ruleFactor, { ('*', ruleFactor) | ('/', ruleFactor) };";
+            string ruleExpr = "ruleExpr = ruleTerm, { ('+', ruleTerm) | ('-', ruleTerm) };";
+
+            parser.AddEBNFRule(ruleNum);
+            parser.AddEBNFRule(ruleFactor);
+            parser.AddEBNFRule(ruleTerm);
+            parser.AddEBNFRule(ruleExpr);
+
+            string inputCalc = "3*(2+1)";
+            var resultCalc = parser.Parse(inputCalc, sequenceName: "ruleExpr", showOnConsole: false);
+            if (resultCalc.Matched)
+            {
+                ParserResultWalker walker3 = new ParserResultWalker(resultCalc.Results[0], showOnConsoleDefault: true);
+                walker3.Visit();
             }
         }
     }
