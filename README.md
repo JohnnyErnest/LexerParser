@@ -49,7 +49,7 @@ Output is an indicator whether the input matched a parsing rule, as well as an A
 
 In laymen terms, you can parse an HTML to a syntax tree of nodes and analyze it, as in the usage example above. If you add the rules for CSS, SQL, and so on, you can do the same with the respective languages.
 
-~~Note that adding EBNF rules ay runtime is a bit costly on performance currently because blah blah blah.~~ Adding EBNF rules has been optimized and is now near instantaneous.
+~~Note that adding EBNF rules at runtime is a bit costly on performance currently because blah blah blah.~~ Adding EBNF rules has been optimized and is now near instantaneous.
 
 Also note, in addition to EBNF operators { ... } for optional repeating blocks, and [ ... ] for optional rule blocks that appear zero or one times, you can also use %% ... %% to create mandatory repeating blocks that must appear at least once as an extension to Extended BNF. 
 
