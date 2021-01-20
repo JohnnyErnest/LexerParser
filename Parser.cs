@@ -1026,6 +1026,21 @@ namespace LexerParser1
             {
                 Sequences.RemoveAt(removeList[i].Item1);
             }
+            removeList = new List<(int, string)>();
+            idx = 0;
+            foreach (var seq in InputLexer.Rules)
+            {
+                if (seq.RuleName.StartsWith("str" + ruleName + ":::"))
+                {
+                    removeList.Add((idx, seq.RuleName));
+                }
+                idx++;
+            }
+            removeList = removeList.OrderByDescending(x => x.Item1).ToList();
+            for (int i = 0; i < removeList.Count; i++)
+            {
+                InputLexer.Rules.RemoveAt(removeList[i].Item1);
+            }
         }
         public class EBNFUpdateList
         {
@@ -1133,7 +1148,7 @@ namespace LexerParser1
                     }
                     outer.Inner = inner;
                 }
-                foreach (var outer in textToUpdate)
+                foreach(var outer in textToUpdate)
                 {
                     List<ParserResult> inner = outer.Outer.InnerResults;
                     if (inner.Count > 2)
@@ -1147,20 +1162,89 @@ namespace LexerParser1
                     }
                     outer.Inner = inner;
                 }
+                var notFinishedList = finishedList.Where(x => x.finished == false);
+
+                var joined1 = notFinishedList.Join(descendantsCopy, x => x.identifierName, y => y.identifierName, (notF, desc) => new
+                {
+                    notF.finished,
+                    notF.identifierName,
+                    desc.result,
+                    desc.containedBy,
+                    desc.contains,
+                    desc.firstContainedBy
+                }).OrderByDescending(x => x.result.MinStart()).Where(x => x.contains.Count == 0).ToArray();
+
+                foreach (var currentItem in joined1.Where(x => x.result.Name == "ebnfTerminal").OrderByDescending(x => x.result.Level))
+                {
+                    var outerItem = currentItem.result.InnerResults[0].InnerResults;
+                    var currentMeta = currentItem.result.InnerResultsMeta;
+                    for (int i = 0; i < outerItem.Count; i++)
+                    {
+                        if (i != 0 && i != outerItem.Count - 1)
+                        {
+                            var innerMetaItem = outerItem[i];
+                            var innerMetaInfo = innerMetaItem.InnerResultsMeta;
+                            Console.WriteLine($"-  Inner:{innerMetaItem.InnerResultsText}, Meta:{innerMetaInfo.Item1}/{innerMetaInfo.Item2}/{innerMetaInfo.Item3}/{innerMetaInfo.Item4}");
+                            Console.WriteLine($"Add: {currentItem.identifierName}, {innerMetaItem.InnerResultsText}");
+
+                            string addRuleText = innerMetaItem.InnerResultsText;
+                            InputLexer.Rules.Add(new Lexer.LexerRules.StringLexerRule("str" + currentItem.identifierName, addRuleText));
+
+                            Sequences.Add(new Parser.ParserSequence()
+                            {
+                                SequenceName = currentItem.identifierName,
+                                Sections = new List<Parser.SequenceSection>()
+                                        {
+                                            new Parser.SequenceSection() { TokenList = "str" + currentItem.identifierName }
+                                        }
+                            });
+
+                            input = input.Remove(currentItem.result.MinStart(), currentItem.result.InnerResultsText.Length);
+                            input = input.Insert(currentItem.result.MinStart(), currentItem.identifierName);
+
+                            Console.WriteLine($"Update: FirstContainedBy:{currentItem.firstContainedBy}");
+                            addARuleForThisItem.Add((currentItem.identifierName, innerMetaItem.InnerResultsText, innerMetaInfo.Item2, innerMetaInfo.Item3, innerMetaInfo.Item4));
+                            for (int ii = 0; ii < finishedList.Count; ii++)
+                            {
+                                if (finishedList[ii].identifierName == currentItem.identifierName)
+                                {
+                                    finishedList[ii] = (true, currentItem.identifierName);
+                                }
+                            }
+
+                            for (int ii = 0; ii < textToUpdate.Length; ii++)
+                            {
+                                if (textToUpdate[ii].IdentifierName == currentItem.firstContainedBy)
+                                {
+                                    var updateItem = textToUpdate[ii];
+                                    string newText = updateItem.OuterResultsText;
+                                    int newStart = currentMeta.Item2 - updateItem.MinStart;
+                                    int newEnd = currentMeta.Item3 - updateItem.MinStart;
+                                    int newLength = currentMeta.Item4;
+                                    newText = newText.Remove(newStart, newLength);
+                                    //newText = newText.Insert(newStart, currentItem.result.InnerResultsText); // this would get you back to the original
+                                    newText = newText.Insert(newStart, currentItem.identifierName);
+                                    updateItem.OuterResultsText = newText;
+                                    textToUpdate[ii] = updateItem;
+                                }
+                            }
+                        }
+                    }
+                }
 
                 while (!doneFinished)
                 {
-                    var notFinishedList = finishedList.Where(x => x.finished == false);
+                    notFinishedList = finishedList.Where(x => x.finished == false);
                     if (notFinishedList.Count() == 0)
                     {
                         doneFinished = true;
                         break;
                     }
                     var finishedList2 = finishedList.Where(x => x.finished);
-                    for (int i=descendantsCopy.Count - 1; i>=0; i--)
+                    for (int i = descendantsCopy.Count - 1; i >= 0; i--)
                     {
                         var current = descendantsCopy[i];
-                        for(int ii=current.contains.Count-1; ii>=0; ii--)
+                        for (int ii = current.contains.Count - 1; ii >= 0; ii--)
                         {
                             string currentContains = current.contains[ii];
                             if (finishedList2.Count(x => x.identifierName == currentContains) > 0)
@@ -1185,7 +1269,8 @@ namespace LexerParser1
                             descendantsCopy.RemoveAt(i);
                         }
                     }
-                    var joined1 = notFinishedList.Join(descendantsCopy, x => x.identifierName, y => y.identifierName, (notF, desc) => new
+
+                    joined1 = notFinishedList.Join(descendantsCopy, x => x.identifierName, y => y.identifierName, (notF, desc) => new
                     {
                         notF.finished,
                         notF.identifierName,
@@ -1194,6 +1279,7 @@ namespace LexerParser1
                         desc.contains,
                         desc.firstContainedBy
                     }).OrderByDescending(x => x.result.MinStart()).Where(x => x.contains.Count == 0).ToArray();
+
                     foreach (var currentItem in joined1)
                     {
                         var currentText = currentItem.result.InnerResultsText;
@@ -1215,124 +1301,69 @@ namespace LexerParser1
                         //{
                         //    Console.WriteLine($"- Outer Difference: Orig:{currentText}, Updated:{updatedText}");
                         //}
-                        if (currentItem.result.Name == "ebnfTerminal")
+
+                        var outerItem = currentItem.result.GetDescendantsOfType(new string[] { "rhs" }).OrderBy(x => x.Level).First();
+                        var innerMetaInfo = outerItem.InnerResultsMeta;
+                        Console.WriteLine($"-  Inner:{outerItem.Name}/{innerMetaInfo.Item1}/{innerMetaInfo.Item2}/{innerMetaInfo.Item3}/{innerMetaInfo.Item4}");
+                        string addText = innerMetaInfo.Item1;
+                        string append = "";
+                        bool didUseUpdatedText = false;
+                        if (updatedText != addText && updatedYet)
                         {
-                            var outerItem = currentItem.result.InnerResults[0].InnerResults;
-                            for (int i = 0; i < outerItem.Count; i++)
-                            {
-                                if (i != 0 && i != outerItem.Count - 1)
-                                {
-                                    var innerMetaItem = outerItem[i];
-                                    var innerMetaInfo = innerMetaItem.InnerResultsMeta;
-                                    Console.WriteLine($"-  Inner:{innerMetaItem.InnerResultsText}, Meta:{innerMetaInfo.Item1}/{innerMetaInfo.Item2}/{innerMetaInfo.Item3}/{innerMetaInfo.Item4}");
-                                    Console.WriteLine($"Add: {currentItem.identifierName}, {innerMetaItem.InnerResultsText}");
-                                    
-                                    string addRuleText = innerMetaItem.InnerResultsText;
-                                    InputLexer.Rules.Add(new Lexer.LexerRules.StringLexerRule("str" + currentItem.identifierName, addRuleText));
+                            addText = updatedText;
+                            didUseUpdatedText = true;
+                        }
+                        string updateFirstContainedBy = currentItem.firstContainedBy;
+                        if (updateFirstContainedBy == "")
+                        {
+                            updateFirstContainedBy = "MAIN_BLOCK";
+                        }
+                        Console.WriteLine($"Add: {currentItem.identifierName}:, {addText}");
+                        Console.WriteLine($"Update: FirstContainedBy:{updateFirstContainedBy}");
+                        string outerText = currentItem.result.InnerResultsText;
 
-                                    Sequences.Add(new Parser.ParserSequence()
-                                    {
-                                        SequenceName = currentItem.identifierName,
-                                        Sections = new List<Parser.SequenceSection>()
-                                        {
-                                            new Parser.SequenceSection() { TokenList = "str" + currentItem.identifierName }
-                                        }
-                                    });
-
-                                    Console.WriteLine($"Update: FirstContainedBy:{currentItem.firstContainedBy}");
-                                    addARuleForThisItem.Add((currentItem.identifierName, innerMetaItem.InnerResultsText, innerMetaInfo.Item2, innerMetaInfo.Item3, innerMetaInfo.Item4));
-                                    for (int ii = 0; ii < finishedList.Count; ii++)
-                                    {
-                                        if (finishedList[ii].identifierName == currentItem.identifierName)
-                                        {
-                                            finishedList[ii] = (true, currentItem.identifierName);
-                                        }
-                                    }
-
-                                    for (int ii = 0; ii < textToUpdate.Length; ii++)
-                                    {
-                                        if (textToUpdate[ii].IdentifierName == currentItem.firstContainedBy)
-                                        {
-                                            var updateItem = textToUpdate[ii];
-                                            string newText = updateItem.OuterResultsText;
-                                            int newStart = currentMeta.Item2 - updateItem.MinStart;
-                                            int newEnd = currentMeta.Item3 - updateItem.MinStart;
-                                            int newLength = currentMeta.Item4;
-                                            newText = newText.Remove(newStart, newLength);
-                                            //newText = newText.Insert(newStart, currentItem.result.InnerResultsText); // this would get you back to the original
-                                            newText = newText.Insert(newStart, currentItem.identifierName);
-                                            updateItem.OuterResultsText = newText;
-                                            textToUpdate[ii] = updateItem;
-                                        }
-                                    }
-                                }
-                            }
+                        if (!didUseUpdatedText)
+                        {
+                            if (outerText.Trim().StartsWith("{")) { append += "/Opt/Rep"; }
+                            else if (outerText.Trim().StartsWith("[")) { append += "/Opt"; }
+                            else if (outerText.Trim().StartsWith("%%")) { append += "/Rep"; }
                         }
                         else
                         {
-                            var outerItem = currentItem.result.GetDescendantsOfType(new string[] { "rhs" }).OrderBy(x => x.Level).First();
-                            var innerMetaInfo = outerItem.InnerResultsMeta;
-                            Console.WriteLine($"-  Inner:{outerItem.Name}/{innerMetaInfo.Item1}/{innerMetaInfo.Item2}/{innerMetaInfo.Item3}/{innerMetaInfo.Item4}");
-                            string addText = innerMetaInfo.Item1;
-                            string append = "";
-                            bool didUseUpdatedText = false;
-                            if (updatedText != addText && updatedYet)
-                            {
-                                addText = updatedText;
-                                didUseUpdatedText = true;
-                            }
-                            string updateFirstContainedBy = currentItem.firstContainedBy;
-                            if (updateFirstContainedBy == "")
-                            {
-                                updateFirstContainedBy = "MAIN_BLOCK";
-                            }
-                            Console.WriteLine($"Add: {currentItem.identifierName}:, {addText}");
-                            Console.WriteLine($"Update: FirstContainedBy:{updateFirstContainedBy}");
-                            string outerText = currentItem.result.InnerResultsText;
+                            string at = addText.Trim();
+                            if (at.StartsWith("{")) { append += "/Opt/Rep"; at = at.Substring(1); at = at.Substring(0, at.Length - 1); }
+                            else if (at.StartsWith("[")) { append += "/Opt"; at = at.Substring(1); at = at.Substring(0, at.Length - 1); }
+                            else if (at.StartsWith("%%")) { append += "/Rep"; at = at.Substring(2); at = at.Substring(0, at.Length - 2); }
+                            addText = at;
+                        }
 
-                            if (!didUseUpdatedText)
+                        AddEBNFRuleSections(identifier, currentItem.identifierName, addText, outerText);
+
+                        addARuleForThisItem.Add((currentItem.identifierName, outerItem.InnerResultsText, innerMetaInfo.Item2, innerMetaInfo.Item3, innerMetaInfo.Item4));
+
+                        for (int ii = 0; ii < finishedList.Count; ii++)
+                        {
+                            if (finishedList[ii].identifierName == currentItem.identifierName)
                             {
-                                if (outerText.Trim().StartsWith("{")) { append += "/Opt/Rep"; }
-                                else if (outerText.Trim().StartsWith("[")) { append += "/Opt"; }
-                                else if (outerText.Trim().StartsWith("%%")) { append += "/Rep"; }
+                                finishedList[ii] = (true, currentItem.identifierName);
                             }
-                            else
+                        }
+
+                        for (int ii = 0; ii < textToUpdate.Length; ii++)
+                        {
+                            if (textToUpdate[ii].IdentifierName == currentItem.firstContainedBy)
                             {
-                                string at = addText.Trim();
-                                if (at.StartsWith("{")) { append += "/Opt/Rep"; at = at.Substring(1); at = at.Substring(0, at.Length - 1); }
-                                else if (at.StartsWith("[")) { append += "/Opt"; at = at.Substring(1); at = at.Substring(0, at.Length - 1); }
-                                else if (at.StartsWith("%%")) { append += "/Rep"; at = at.Substring(2); at = at.Substring(0, at.Length - 2); }
-                                addText = at;
-                            }
-
-                            AddEBNFRuleSections(identifier, currentItem.identifierName, addText, outerText);
-
-                            addARuleForThisItem.Add((currentItem.identifierName, outerItem.InnerResultsText, innerMetaInfo.Item2, innerMetaInfo.Item3, innerMetaInfo.Item4));
-
-                            for (int ii=0; ii<finishedList.Count; ii++)
-                            {
-                                if (finishedList[ii].identifierName == currentItem.identifierName)
-                                {
-                                    finishedList[ii] = (true, currentItem.identifierName);
-                                }
-                            }
-
-                            for(int ii=0; ii<textToUpdate.Length; ii++)
-                            {
-                                if (textToUpdate[ii].IdentifierName == currentItem.firstContainedBy)
-                                {
-                                    var updateItem = textToUpdate[ii];
-                                    string newText = updateItem.OuterResultsText;
-                                    int newStart = currentMeta.Item2 - updateItem.MinStart;
-                                    int newEnd = currentMeta.Item3 - updateItem.MinStart;
-                                    int newLength = currentMeta.Item4;
-                                    newText = newText.Remove(newStart, newLength);
-                                    //newText = newText.Insert(newStart, currentItem.result.InnerResultsText); // this would get you back to the original
-                                    newText = newText.Insert(newStart, currentItem.identifierName + append);
-                                    updateItem.OuterResultsText = newText;
-                                    updateItem.Updated = true;
-                                    textToUpdate[ii] = updateItem;
-                                }
+                                var updateItem = textToUpdate[ii];
+                                string newText = updateItem.OuterResultsText;
+                                int newStart = currentMeta.Item2 - updateItem.MinStart;
+                                int newEnd = currentMeta.Item3 - updateItem.MinStart;
+                                int newLength = currentMeta.Item4;
+                                newText = newText.Remove(newStart, newLength);
+                                //newText = newText.Insert(newStart, currentItem.result.InnerResultsText); // this would get you back to the original
+                                newText = newText.Insert(newStart, currentItem.identifierName + append);
+                                updateItem.OuterResultsText = newText;
+                                updateItem.Updated = true;
+                                textToUpdate[ii] = updateItem;
                             }
                         }
                         Console.WriteLine();
@@ -1344,35 +1375,88 @@ namespace LexerParser1
                 var rhsMeta = rhs.InnerResultsMeta;
 
                 int idx = 0;
-                //foreach(var item in textToUpdate.OrderByDescending(x => x.Level))
-                //{
-                //    var origItem = originalText.OrderByDescending(x => x.Level).ElementAt(idx);
-                //    int newStart = item.MinStart - rhsMeta.Item2;
-                //    int origLength = origItem.OuterResultsText.Length;
-                //    int newLength = item.OuterResultsText.Length;
-                //    string origText = origItem.OuterResultsText;
-
-                //    string append = "";
-                //    if (origText.Trim().StartsWith("{")) { append += "/Opt/Rep"; }
-                //    else if (origText.Trim().StartsWith("[")) { append += "/Opt"; }
-                //    else if (origText.Trim().StartsWith("%%")) { append += "/Rep"; }
-
-                //    string newText = item.IdentifierName;
-
-                //    mainBlockText = mainBlockText.Remove(newStart, origLength);
-                //    mainBlockText = mainBlockText.Insert(newStart, newText + append);
-
-                //    idx++;
-                //}
-                //AddEBNFRuleSections(identifier, item.IdentifierName, mainBlockText, origText);
-                //AddEBNFRuleSections(identifier, id_main_block, mainBlockText, "");
-
                 var hi = Sequences;
-                //foreach(var item in textToUpdate.OrderByDescending(x => x.))
+                var hi2 = InputLexer.Rules;
             }
             Console.WriteLine();
         }
-        public void AddEBNFRule(string inputEBNF)
+
+        public void AddEBNFRule(string input)
+        {
+            var firstResult = Parse(input, sequenceName: "rule");
+            if (firstResult.Matched)
+            {
+                var identifier = firstResult.Results[0].GetDescendantsOfType(new string[] { "lhs" }).OrderBy(x => x.MinStart()).ToArray();
+                string identifierText = identifier[0].InnerResultsText.Trim();
+                var allTexts = firstResult.Results[0].GetDescendantsOfType(new string[] { "ebnfTerminal" }).OrderByDescending(x => x.MinStart()).ToArray();
+                List<(string identifier, bool optional, bool repeating, string text, bool continueProcessing)> textStrings = new List<(string, bool, bool, string, bool)>();
+                int idx = 0;
+                foreach(var item in allTexts)
+                {
+                    string text = item.InnerResultsText;
+                    var meta = item.InnerResultsMeta;
+                    string newString = identifierText + ":::" + "ebnfTerminal" + ":" + item.Level + ":" + idx;
+                    if (text.StartsWith("\"")) { text = text.Substring(1, text.Length - 1); }
+                    if (text.EndsWith("\"")) { text = text.Substring(0, text.Length - 1); }
+                    //textStrings.Add((newString, false, false, text, true, true));
+                    textStrings.Add((newString, false, false, "str"+newString, true));
+                    InputLexer.Rules.Add(new Lexer.LexerRules.StringLexerRule("str"+newString, text));
+                    int start = (item.Span != null) ? item.Span.Start : item.InnerResultsMeta.Item2;
+                    item.Span = new Lexer.Span() { Text = newString, Start = start, InnerSpans = new List<Lexer.Span>() };
+                    item.InnerResults = new List<ParserResult>();
+                    idx++;
+                }
+                var groups = firstResult.Results[0].GetEBNFGroupsWithContainmentMapSimplified(identifierText, includeStringLiterals: false).OrderByDescending(x => x.result.Level).ThenByDescending(x => x.result.MinStart()).ToArray();
+                foreach(var item in groups)
+                {
+                    string text = item.result.InnerResultsText;
+                    var meta = item.result.InnerResultsMeta;
+                    string newString = identifierText + ":::" + item.result.Name + ":" + item.result.Level + ":" + idx;
+                    text = text.Trim();
+                    bool isOptional = false;
+                    bool isRepeating = false;
+                    if (text.StartsWith("[")) { text = text.Substring(1, text.Length - 2); isOptional = true; }
+                    else if (text.StartsWith("{")) { text = text.Substring(1, text.Length - 2); isOptional = true; isRepeating = true; }
+                    else if (text.StartsWith("%%")) { text = text.Substring(2, text.Length - 4); isRepeating = true; }
+                    text = text.Trim();
+                    textStrings.Add((newString, isOptional, isRepeating, text, true));
+                    int start = (item.result.Span != null) ? item.result.Span.Start : item.result.InnerResultsMeta.Item2;
+                    item.result.Span = new Lexer.Span() { Text = newString, Start = start, InnerSpans = new List<Lexer.Span>() };
+                    item.result.InnerResults = new List<ParserResult>();
+                    idx++;
+                }
+                var mainBlock = firstResult.Results[0].GetDescendantsOfType(new string[] { "rhs" }).OrderBy(x => x.Level).ThenBy(x => x.MinStart()).ToArray();
+                string mainBlockText = mainBlock[0].InnerResultsText;
+                string mainBlockId = identifierText + ":::" + "main_block" + ":" + 0 + ":" + 0;
+                textStrings.Add((mainBlockId, false, false, mainBlockText, true));
+                textStrings.Add((identifierText, false, false, mainBlockId, false));
+                for(int i=0;i<textStrings.Count;i++)
+                {
+                    int idx1 = i;
+                    var item = textStrings[i];
+                    if (item.continueProcessing)
+                    {
+                        for (int ii = 0; ii < idx1; ii++)
+                        {
+                            var item1 = textStrings[ii];
+                            string append = "";
+                            if (item1.optional) { append += "/Opt"; }
+                            if (item1.repeating) { append += "/Rep"; }
+                            string text = item1.identifier + append;
+                            item.text = item.text.Replace(item1.identifier, text);
+                        }
+                        item.continueProcessing = false;
+                        textStrings[i] = item;
+                    }
+                }
+                for(int i=0;i<textStrings.Count;i++)
+                {
+                    AddEBNFRuleSections(identifierText, textStrings[i].identifier, textStrings[i].text, "");
+                }
+            }
+        }
+
+        public void AddEBNFRuleDeprecated(string inputEBNF)
         {
             var firstResult = Parse(inputEBNF, sequenceName: "rule");
             if (firstResult.Matched)

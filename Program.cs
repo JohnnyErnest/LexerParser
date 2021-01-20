@@ -149,13 +149,8 @@ namespace LexerParser1
             string htmlInnerTagText = @"htmlInnerTagText = %% letters|spaces|digits|whitespaces|semicolon|underscore|equals %%;";
             string htmlTag = @"htmlTag = htmlOpenTag, {htmlInnerTagText}, {htmlTag}, {htmlInnerTagText}, htmlCloseTag;";
 
-            //parser.EBNFAddRuleFast(htmlIdentifier);
-            //parser.EBNFAddRuleFast(htmlAttribute);
-            //parser.EBNFAddRuleFast(htmlTagName);
-            //parser.EBNFAddRuleFast(htmlOpenTag);
-            //parser.EBNFAddRuleFast(htmlCloseTag);
-            //parser.EBNFAddRuleFast(htmlInnerTagText);
-            //parser.EBNFAddRuleFast(htmlTag);
+            //string rules = JsonConvert.SerializeObject(parser.InputLexer.Rules);
+            //string sequences = JsonConvert.SerializeObject(parser.Sequences.Where(x => x.SequenceName.StartsWith("html")));
 
             parser.AddEBNFRule(htmlIdentifier);
             parser.AddEBNFRule(htmlAttribute);
@@ -164,6 +159,9 @@ namespace LexerParser1
             parser.AddEBNFRule(htmlCloseTag);
             parser.AddEBNFRule(htmlInnerTagText);
             parser.AddEBNFRule(htmlTag);
+
+            //rules = JsonConvert.SerializeObject(parser.InputLexer.Rules);
+            //sequences = JsonConvert.SerializeObject(parser.Sequences.Where(x => x.SequenceName.StartsWith("html")));
 
             string inputHtml = "<html><head><title>Title</title></head><body><h2 selected>Helloooo hi</h2><div class=\"someClass\">Here is <span>some</span> text</div></body></html>";
             var result = parser.Parse(inputHtml, sequenceName: "htmlTag", showOnConsole: false);
