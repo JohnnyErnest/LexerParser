@@ -7,7 +7,8 @@
     "strEnd": "ci_string:End",
     "strTripleColon": "ci_string::::",
     "strRepeat": "ci_string:/Rep",
-    "strOptional": "ci_string:/Opt"
+    "strOptional": "ci_string:/Opt",
+    "strDoubleBackslash": "string:\\\\"
   },
   "parser": {
     "ebnfCharacter": {
@@ -25,6 +26,20 @@
         }
       ]
     },
+    "ebnfidentifier": {
+      "sequence": [
+        {
+          "tokenList": "ampersand,atSign",
+          "isOptional": "true"
+        },
+        { "tokenList": "letter" },
+        {
+          "tokenList": "letter,digit,underscore",
+          "isOptional": "true",
+          "isRepeating": "true"
+        }
+      ]
+    },
     "identifier": {
       "sequence": [
         { "tokenList": "letter" },
@@ -37,7 +52,7 @@
     },
     "ebnfIdentifierGroupPlaceholder": {
       "sequence": [
-        { "sequenceList": "identifier" },
+        { "sequenceList": "ebnfIdentifier" },
         { "tokenList": "strTripleColon" },
         { "sequenceList": "identifier" },
         { "tokenList": "colon" },
@@ -165,7 +180,7 @@
     },
     "rhsValue": {
       "sequence": [
-        { "sequenceList": "ebnfIdentifierGroupPlaceholder,identifier,ebnfTerminal" }
+        { "sequenceList": "ebnfIdentifierGroupPlaceholder,ebnfIdentifier,ebnfTerminal" }
       ]
     },
     "rhsBlockBracket": {
@@ -322,7 +337,7 @@
         }
       ]
     },
-    "rhsPrimaryFactor1": {
+    "rhsPipe": {
       "sequence": [
         {
           "tokenList": "whitespaces",
@@ -332,7 +347,12 @@
         {
           "tokenList": "whitespaces",
           "isOptional": "true"
-        },
+        }
+      ]
+    },
+    "rhsPrimaryFactorPipe": {
+      "sequence": [
+        { "sequenceList": "rhsPipe" },
         { "sequenceList": "rhsPrimary" },
         {
           "tokenList": "whitespaces",
@@ -352,7 +372,7 @@
           "isOptional": "true"
         },
         {
-          "sequenceList": "rhsPrimaryFactor1",
+          "sequenceList": "rhsPrimaryFactorPipe",
           "isOptional": "true",
           "isRepeating": "true"
         },
@@ -362,7 +382,7 @@
         }
       ]
     },
-    "rhsPrimaryElement1": {
+    "rhsComma": {
       "sequence": [
         {
           "tokenList": "whitespaces",
@@ -372,7 +392,12 @@
         {
           "tokenList": "whitespaces",
           "isOptional": "true"
-        },
+        }
+      ]
+    },
+    "rhsPrimaryElementComma": {
+      "sequence": [
+        { "sequenceList": "rhsComma" },
         { "sequenceList": "rhsFactor" },
         {
           "tokenList": "whitespaces",
@@ -380,11 +405,29 @@
         }
       ]
     },
+    "rhsLineContinuation": {
+      "sequence": [
+        {
+          "tokenList": "whitespaces",
+          "isOptional": "true"
+        },
+        { "tokenList": "strDoubleBackslash" },
+        {
+          "tokenList": "whitespaces",
+          "isOptional": "true"
+        }
+      ]
+    },
+    "rhsPrimaryElementContinuation": {
+      "sequence": [
+        { "sequenceList": "rhsLineContinuation" }
+      ]
+    },
     "rhs": {
       "sequence": [
         { "sequenceList": "rhsFactor" },
         {
-          "sequenceList": "rhsPrimaryElement1",
+          "sequenceList": "rhsPrimaryElementComma",
           "isOptional": "true",
           "isRepeating": "true"
         }
