@@ -1,6 +1,7 @@
 # LexerParser
 
 ![Screenshot](https://raw.githubusercontent.com/JohnnyErnest/LexerParser/main/ParserImage.png)
+Figure 1) An example of some HTML syntax being processed as EBNF rules to highlight a user entered piece of HTML source code.
 
 A C# Lexical Analyzer and Parser with JSON configuration and partial Extended Backus-Naur Form support (https://en.wikipedia.org/wiki/Extended_Backus%E2%80%93Naur_form) for parsing context-free grammars expressed in EBNF, or more directly from a JSON configuration, from a user input text string or a document such as Html, CSS, SQL, expression calculators, etc. EBNF configurations will generally be smaller than JSON configurations, as the Lexer/Parser generates Rules/Sequences from EBNF at runtime into the same base objects that are built from the included JSON configurations.
 
