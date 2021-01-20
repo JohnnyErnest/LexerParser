@@ -6,6 +6,15 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="LexerParser.Tests\**" />
+    <Compile Remove="LexerParser\**" />
+    <EmbeddedResource Remove="LexerParser.Tests\**" />
+    <EmbeddedResource Remove="LexerParser\**" />
+    <None Remove="LexerParser.Tests\**" />
+    <None Remove="LexerParser\**" />
+  </ItemGroup>
+
+  <ItemGroup>
     <None Remove="Configuration\EBNFPascal.txt" />
     <None Remove="Configuration\ParserCSS.json" />
     <None Remove="Configuration\ParserEBNF.json" />
@@ -41,6 +50,10 @@
 
   <ItemGroup>
     <PackageReference Include="Newtonsoft.Json" Version="12.0.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="LexerParser\LexerParser.csproj" />
   </ItemGroup>
 
 </Project>

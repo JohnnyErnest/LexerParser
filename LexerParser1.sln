@@ -5,7 +5,9 @@ VisualStudioVersion = 16.0.30804.86
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "LexerParser1", "LexerParser1.csproj", "{13978FEB-A475-438A-AD05-55B14FE3413C}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LexerParser.Tests", "..\LexerParser.Tests\LexerParser.Tests.csproj", "{F10EA251-12B5-4FFF-817F-468105BD4D4C}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LexerParser.Tests", "LexerParser.Tests\LexerParser.Tests.csproj", "{F10EA251-12B5-4FFF-817F-468105BD4D4C}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LexerParser", "LexerParser\LexerParser.csproj", "{8D351DFA-0C20-4726-8B74-F9BE81091D2B}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -21,6 +23,10 @@ Global
 		{F10EA251-12B5-4FFF-817F-468105BD4D4C}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{F10EA251-12B5-4FFF-817F-468105BD4D4C}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{F10EA251-12B5-4FFF-817F-468105BD4D4C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8D351DFA-0C20-4726-8B74-F9BE81091D2B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8D351DFA-0C20-4726-8B74-F9BE81091D2B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8D351DFA-0C20-4726-8B74-F9BE81091D2B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8D351DFA-0C20-4726-8B74-F9BE81091D2B}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

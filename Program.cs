@@ -3,128 +3,12 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using LexerParser;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
 namespace LexerParser1
 {
-    public class ParserResultWalker
-    {
-        public bool ShowOnConsoleDefault { get; set; }
-        public Parser.ParserResult ParserResult { get; set; }
-        public ParserResultWalker(Parser.ParserResult parserResult, bool showOnConsoleDefault = false)
-        {
-            ParserResult = parserResult;
-            ShowOnConsoleDefault = showOnConsoleDefault;
-        }
-        public virtual void Visit()
-        {
-            VisitSequenceNode(ParserResult);
-        }
-        public virtual void VisitSequenceNode(Parser.ParserResult node, int level = 0)
-        {
-            string levelString = "".PadLeft(level, ' ');
-            if (node.Span != null)
-            {
-                VisitToken(node.Span, level + 1);
-            }
-            else
-            {
-                if (ShowOnConsoleDefault)
-                {
-                    Console.WriteLine($"{levelString}Node:{node.Name}, Start:{node.MinStart()}, InnerText:{node.InnerResultsText}");
-                }
-                foreach (var item in node.InnerResults)
-                {
-                    VisitSequenceNode(item, level + 1);
-                }
-                if (ShowOnConsoleDefault)
-                {
-                    Console.WriteLine($"{levelString}Return from Node:{node.Name}, End:{node.MaxEnd()}, InnerText:{node.InnerResultsText}");
-                }
-            }
-        }
-        public virtual void VisitToken(Lexer.Span span, int level = 0)
-        {
-            string levelString = "".PadLeft(level, ' ');
-            if (ShowOnConsoleDefault)
-            {
-                Console.WriteLine($"{levelString}Token: {span.Rule.RuleName}, Start:{span.Start}, Text:{span.Text}");
-            }
-        }
-    }
-    public class ConsoleWalker : ParserResultWalker
-    {
-        public List<(string, string)> Nodes = new List<(string, string)>();
-        public ConsoleWalker(Parser.ParserResult parserResult) : base(parserResult, showOnConsoleDefault: false)
-        {
-            Visit();
-        }
-        public override void Visit()
-        {
-            base.Visit();
-        }
-        void SetColor(Parser.ParserResult node, bool backwards = false)
-        {
-            if (new string[] { "htmlOpenTag", "htmlCloseTag" }.Contains(node.Name))
-            {
-                Console.ForegroundColor = ConsoleColor.DarkGray;
-            }
-            else if (node.Name == "htmlAttribute")
-            {
-                if (backwards)
-                {
-                    Console.ForegroundColor = ConsoleColor.DarkGray;
-                }
-                else
-                {
-                    Console.ForegroundColor = ConsoleColor.DarkCyan;
-                }
-            }
-            else if (node.Name == "htmlTagName")
-            {
-                if (backwards) {
-                    Console.ForegroundColor = ConsoleColor.DarkGray;
-                }
-                else
-                {
-                    Console.ForegroundColor = ConsoleColor.Cyan;
-                }
-            }
-            else if (node.Name == "htmlInnerTagText")
-            {
-                Console.ForegroundColor = ConsoleColor.White;
-            }
-        }
-        public override void VisitSequenceNode(Parser.ParserResult node, int level = 0)
-        {
-            Nodes.Add((node.Name, "before"));
-            SetColor(node);
-            base.VisitSequenceNode(node, level);
-            SetColor(node, true);
-            Nodes.Add((node.Name, "after"));
-        }
-        public override void VisitToken(Lexer.Span span, int level = 0)
-        {
-            Nodes.Add(("token", span.Text));
-            if (span.Text == "=")
-            {
-                Console.ForegroundColor = ConsoleColor.Gray;
-                Console.Write(span.Text);
-            }
-            else if (span.Text == "\"")
-            {
-                Console.ForegroundColor = ConsoleColor.DarkYellow;
-                Console.Write(span.Text);
-                Console.ForegroundColor = ConsoleColor.Yellow;
-            }
-            else
-            {
-                Console.Write(span.Text);
-            }
-            base.VisitToken(span, level);
-        }
-    }
     class Program
     {
         static void Main(string[] args)
@@ -212,25 +96,32 @@ namespace LexerParser1
                     var nums = exprs[i].GetDescendantsOfType(new string[] { "mathNum" });
                     var signs = exprs[i].GetDescendantsOfType(new string[] { "mathAdd", "mathSubtract", "mathMultiply", "mathDivide" });
                     var functions = exprs[i].GetDescendantsOfType(new string[] { "mathFunction" });
-                    foreach(var num in nums)
+                    var all = exprs[i].GetDescendantsOfType(new string[] { "mathAdd", "mathSubtract", "mathMultiply", "mathDivide", "mathNum", "mathFunction", "mathFactor", "mathTerm", "mathExpr" }).OrderBy(x => x.Level).ThenBy(x => x.MinStart()).ToArray();
+                    var allFactors = exprs[i].GetDescendantsOfType(new string[] { "mathMultiply", "mathDivide", "mathFactor" }).ToArray();
+                    foreach (var num in exprs[i].GetDescendantsOfType(new string[] { "mathNum" }))
                     {
+                        num.EvaluationFunction = new Func<Parser.ParserResult, Parser.EvaluationResult>(num =>
+                        {
+                            return new Parser.EvaluationResult()
+                            {
+                                EvaluationType = typeof(double),
+                                EvaluationValue = double.Parse(num.InnerResultsText),
+                                EvaluationText = double.Parse(num.InnerResultsText).ToString()
+                            };
+                        });
+                        if (num.EvaluationResult == null)
+                        {
+                            num.EvaluationResult = num.EvaluationFunction(num);
+                        }
                         Console.WriteLine($"- Number:{num}");
-                    }
-                    foreach(var sign in signs)
-                    {
-                        Console.WriteLine($"- Sign:{sign}");
-                    }
-                    foreach (var func in functions)
-                    {
-                        Console.WriteLine($"- Function:{func}");
                     }
                     Console.WriteLine();
                 }
 
                 Console.WriteLine(inputCalc);
 
-                //ParserResultWalker walker3 = new ParserResultWalker(resultCalc.Results[0], showOnConsoleDefault: true);
-                //walker3.Visit();
+                ParserResultWalker walker3 = new ParserResultWalker(resultCalc.Results[0], showOnConsoleDefault: true, filterOutEBNF: true);
+                walker3.Visit();
             }
         }
     }
