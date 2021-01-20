@@ -11,13 +11,17 @@ static void Main(string[] args)
     Lexer lexer = new Lexer(defaultConfiguration, userConfiguration);
     Parser parser = new Parser(lexer, userConfiguration);
 
-    string htmlAttribute = @"htmlAttribute = whitespaces, identifier, ""="", [whitespaces], ebnfTerminalDoubleQuote;";
-    string htmlOpenTag = @"htmlOpenTag = ""<"", identifier, { htmlAttribute }, [whitespaces], "">"";";
-    string htmlCloseTag = @"htmlCloseTag = ""</"", identifier, "">"";";
-    string htmlInnerTagText = @"htmlInnerTagText = %%letters|spaces|digits|whitespaces|semicolon|underscore|equals%%;";
+    string htmlIdentifier = @"htmlIdentifier = letter, { letter|digit|hyphen|underscore };";
+    string htmlAttribute = @"htmlAttribute = whitespaces, htmlIdentifier, { [whitespaces], ""="", [whitespaces], ebnfTerminalDoubleQuote };";
+    string htmlTagName = @"htmlTagName = htmlIdentifier;";
+    string htmlOpenTag = @"htmlOpenTag = ""<"", htmlTagName, { htmlAttribute }, [whitespaces], "">"";";
+    string htmlCloseTag = @"htmlCloseTag = ""</"", htmlTagName, "">"";";
+    string htmlInnerTagText = @"htmlInnerTagText = %% letters|spaces|digits|whitespaces|semicolon|underscore|equals %%;";
     string htmlTag = @"htmlTag = htmlOpenTag, {htmlInnerTagText}, {htmlTag}, {htmlInnerTagText}, htmlCloseTag;";
 
+    parser.AddEBNFRule(htmlIdentifier);
     parser.AddEBNFRule(htmlAttribute);
+    parser.AddEBNFRule(htmlTagName);
     parser.AddEBNFRule(htmlOpenTag);
     parser.AddEBNFRule(htmlCloseTag);
     parser.AddEBNFRule(htmlInnerTagText);
@@ -41,17 +45,15 @@ Output is an indicator whether the input matched a parsing rule, as well as an A
 
 In laymen terms, you can parse an HTML to a syntax tree of nodes and analyze it, as in the usage example above. If you add the rules for CSS, SQL, and so on, you can do the same with the respective languages.
 
-Note that adding EBNF rules ay runtime is a bit costly on performance because it currently reparses internal parts of text while adding subnodes such as "( nodes, nodes, nodes )", "[ nodes, nodes, nodes ]", and "{ nodes, nodes, nodes }" while adding subrules and replacing text via substitution internally. 
+Note that adding EBNF rules ay runtime is a bit costly on performance currently because it reparses internal parts of text while adding subnodes such as "( nodes, nodes, nodes )", "[ nodes, nodes, nodes ]", and "{ nodes, nodes, nodes }" while adding subrules and replacing text via substitution internally, a faster version is in the works. 
 
-However, you could load up EBNF rules before-hand as you would with a third party tool like Yacc/Bison, and once precompiled you can serialized the custom Lexer.Rules and Parser.Sequences as they are runtime Objects to a serialized JSON and load them once at runtime on subsequent runs without the performance hit from the process of parsing and adding EBNF rules, if you have a set grammar that you want to pre-compile ahead of time, which is most often the case. However, the flexibility is there to add EBNF rules directly at runtime for any specific use case you might have, you can build new rules and test them at runtime in, say, a REPL shell.
-
-Also note, in addition to EBNF operators { ... } for optional repeating blocks, and [ ... ] for optional rule blocks that appear zero or one times, you can also use %% ... %% for mandatory repeating blocks that must appear at least once as an extension to Extended BNF.
+Also note, in addition to EBNF operators { ... } for optional repeating blocks, and [ ... ] for optional rule blocks that appear zero or one times, you can also use %% ... %% to create mandatory repeating blocks that must appear at least once as an extension to Extended BNF. Also when adding EBNF rules, there is normally a lookup to see if the Lexer Rule or Parser Sequence exists, if not, it is added to a list of Unknowns and is unused. You can override this behavior with putting @ in front of the Lexer Rule or & in front of the Parser Sequence if you know ahead of time that the Rule or Sequence will be added later.
 
 **To Do**
 
 - Unit Testing
 - Nuget Packaging
-- Variable name capture support in EBNF, this is currently available in JSON with "varName" on sections you want to name, it means I would need to make more extensions to  Extended BNF, which, if anything, is a mild source of humor.
+- Variable name capture support in EBNF, this is currently available in JSON with "varName" on sections you want to name.
 
 **Output of Example Usage**:
 
