@@ -9,11 +9,13 @@ namespace LexerParser
     {
         public bool ShowOnConsoleDefault { get; set; }
         public bool FilterOutEBNF { get; set; }
+        public bool ShowReturnMessage { get; set; }
         public Parser.ParserResult ParserResult { get; set; }
-        public ParserResultWalker(Parser.ParserResult parserResult, bool showOnConsoleDefault = false, bool filterOutEBNF = false)
+        public ParserResultWalker(Parser.ParserResult parserResult, bool showOnConsoleDefault = false, bool filterOutEBNF = false, bool showReturnMessage = false)
         {
             ParserResult = parserResult;
             ShowOnConsoleDefault = showOnConsoleDefault;
+            ShowReturnMessage = ShowReturnMessage;
             FilterOutEBNF = filterOutEBNF;
         }
         public virtual void Visit()
@@ -42,9 +44,12 @@ namespace LexerParser
                 }
                 if (ShowOnConsoleDefault)
                 {
-                    if ((FilterOutEBNF == true && node.Name.Contains(":::") == false) || FilterOutEBNF == false)
+                    if (ShowReturnMessage)
                     {
-                        Console.WriteLine($"{levelString}Return from Node:{node}");
+                        if ((FilterOutEBNF == true && node.Name.Contains(":::") == false) || FilterOutEBNF == false)
+                        {
+                            Console.WriteLine($"{levelString}Return from Node:{node}");
+                        }
                     }
                 }
             }

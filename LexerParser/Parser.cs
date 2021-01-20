@@ -163,6 +163,13 @@ namespace LexerParser
         }
         public class ParserResult
         {
+            public class EBNFContainmentInfo
+            {
+                public string IdentifierName { get; set; }
+                public bool Contains { get; set; }
+                public bool ContainedBy { get; set; }
+                public bool IsSameNode { get; set; }
+            }
             public string Name { get; set; }
             public Lexer.Span Span { get; set; }
             public string VariableName { get; set; }
@@ -176,6 +183,63 @@ namespace LexerParser
             public ParserSequenceAndSection Parent { get; set; }
             [JsonIgnore()]
             public ParserSequenceAndSection Root { get; set; }
+            public ParserResult FirstSibling { get
+                {
+                    if (Parent.Node.InnerResults.Count > 0)
+                    {
+                        return Parent.Node.InnerResults[0];
+                    }
+                    return null;
+                } 
+            }
+            public ParserResult LastSibling { get
+                {
+                    int item = Parent.Node.InnerResults.Count - 1;
+                    if (Parent.Node.InnerResults.Count > 0)
+                    {
+                        return Parent.Node.InnerResults[item];
+                    }
+                    else return null;
+                } 
+            }
+            public ParserResult PriorSibling
+            {
+                get
+                {
+                    int idx = 0;
+                    for(int i=0;i<Parent.Node.InnerResults.Count;i++)
+                    {
+                        if (Parent.Node.InnerResults[i] == this)
+                        {
+                            idx = i;
+                        }
+                    }
+                    if (idx - 1 > 0)
+                    {
+                        return Parent.Node.InnerResults[idx - 1];
+                    }
+                    return null;
+                }
+            }
+            public ParserResult NextSibling
+            {
+                get
+                {
+                    int idx = 0;
+                    for (int i = 0; i < Parent.Node.InnerResults.Count; i++)
+                    {
+                        if (Parent.Node.InnerResults[i] == this)
+                        {
+                            idx = i;
+                        }
+                    }
+                    if (idx + 1 < Parent.Node.InnerResults.Count)
+                    {
+                        return Parent.Node.InnerResults[idx + 1];
+                    }
+                    return null;
+                }
+            }
             public EvaluationResult EvaluationResult { get; set; }
             public Func<ParserResult, EvaluationResult> EvaluationFunction { get; set; }
             string GetInnerStringRecursive(List<ParserResult> results)
@@ -335,13 +399,6 @@ namespace LexerParser
                     idx++;
                 }
                 return results;
-            }
-            public class EBNFContainmentInfo
-            {
-                public string IdentifierName { get; set; }
-                public bool Contains { get; set; }
-                public bool ContainedBy { get; set; }
-                public bool IsSameNode { get; set; }
             }
             public List<(string identifierName, ParserResult result, List<(string idName, bool contains, bool containedBy, bool isSameNode)> containerInfo)> GetEBNFGroupsWithContainmentMap(string identifierName, bool includeStringLiterals = false)
             {
