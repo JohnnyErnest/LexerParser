@@ -1,11 +1,11 @@
 # LexerParser
 
 ![Screenshot](https://raw.githubusercontent.com/JohnnyErnest/LexerParser/main/ParserImage.png)
-Figure 1) An example of some HTML syntax being processed as EBNF rules to highlight a user entered piece of HTML source code.
+**Figure 1**) An example use case of LexerParser, some HTML syntax being processed via EBNF rules to syntax highlight a user entered HTML source code document.
 
-LexerParser is a C# Lexical Analyzer and Parser with JSON configuration and partial Extended Backus-Naur Form support (https://en.wikipedia.org/wiki/Extended_Backus%E2%80%93Naur_form) for parsing context-free grammars expressed in EBNF, or more directly from a JSON configuration, from a user input text string or a document such as Html, CSS, SQL, expression calculators, etc. EBNF configurations will generally be smaller than JSON configurations, as the Lexer/Parser generates Rules/Sequences from EBNF at runtime into the same base objects that are built from the included JSON configurations.
+LexerParser is a C# Lexical Analyzer and Parser that uses a JSON configuration as well as partial Extended Backus-Naur Form support (https://en.wikipedia.org/wiki/Extended_Backus%E2%80%93Naur_form) for parsing context-free grammars expressed in EBNF. You can then enter text strings to be parsed by the resulting Parser and retrieve an AST node tree of ParserResults.
 
-Rather than building a static code file beforehand from a static set of rules from a third party tool, LexerParser lets you add and remove Lexer Rules and Parser Sequences dynamically at runtime. However, it doesn't transpile them to executing code yet. The tool is currently made for doing things like analyzing syntax trees, providing syntax highlighting, and checking for well-formed input data.
+Rather than building a static code file beforehand from a static set of rules from a third party tool, LexerParser lets you add and remove Lexer Rules and Parser Sequences dynamically at runtime. 
 
 **Example Usage**:
 
@@ -44,16 +44,9 @@ static void Main(string[] args)
     }    
 }
 ```
+In addition to EBNF operators **{ ... }** for optional repeating blocks, and **[ ... ]** for optional rule blocks that appear zero or one times, you can also use **%% ... %%** to create mandatory repeating blocks that must appear at least once as an extension to Extended BNF. 
 
-Output is an indicator whether the input matched a parsing rule, as well as an Abstract Syntax Tree of ParserResult nodes that can be walked. Parser rules and lexical tokens can be added or removed dynamically at runtime for adding or removing grammars.
-
-In laymen terms, you can parse an HTML to a syntax tree of nodes and analyze it, as in the usage example above. If you add the rules for CSS, SQL, and so on, you can do the same with the respective languages.
-
-~~Note that adding EBNF rules at runtime is a bit costly on performance currently because blah blah blah.~~ Adding EBNF rules has been optimized and is now near instantaneous.
-
-Also note, in addition to EBNF operators { ... } for optional repeating blocks, and [ ... ] for optional rule blocks that appear zero or one times, you can also use %% ... %% to create mandatory repeating blocks that must appear at least once as an extension to Extended BNF. 
-
-Also when adding EBNF rules, there is normally a lookup to see if the Lexer Rule or Parser Sequence exists, if not, it is added to a list of Unknowns and is unused. You can override this behavior with putting @ in front of the Lexer Rule or & in front of the Parser Sequence if you know ahead of time that the Rule or Sequence will be added later.
+When adding EBNF rules, there is normally a lookup to see if the Lexer Rule or Parser Sequence exists, if not, it is added to a list of Unknowns and is unused. You can override this behavior with putting **@** in front of the Lexer Rule or **&** in front of the Parser Sequence if you know ahead of time that the Rule or Sequence will be added later.
 
 **To Do**
 
