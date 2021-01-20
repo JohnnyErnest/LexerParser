@@ -149,9 +149,6 @@ namespace LexerParser1
             string htmlInnerTagText = @"htmlInnerTagText = %% letters|spaces|digits|whitespaces|semicolon|underscore|equals %%;";
             string htmlTag = @"htmlTag = htmlOpenTag, {htmlInnerTagText}, {htmlTag}, {htmlInnerTagText}, htmlCloseTag;";
 
-            //string rules = JsonConvert.SerializeObject(parser.InputLexer.Rules);
-            //string sequences = JsonConvert.SerializeObject(parser.Sequences.Where(x => x.SequenceName.StartsWith("html")));
-
             parser.AddEBNFRule(htmlIdentifier);
             parser.AddEBNFRule(htmlAttribute);
             parser.AddEBNFRule(htmlTagName);
@@ -160,15 +157,12 @@ namespace LexerParser1
             parser.AddEBNFRule(htmlInnerTagText);
             parser.AddEBNFRule(htmlTag);
 
-            //rules = JsonConvert.SerializeObject(parser.InputLexer.Rules);
-            //sequences = JsonConvert.SerializeObject(parser.Sequences.Where(x => x.SequenceName.StartsWith("html")));
-
             string inputHtml = "<html><head><title>Title</title></head><body><h2 selected>Helloooo hi</h2><div class=\"someClass\">Here is <span>some</span> text</div></body></html>";
             var result = parser.Parse(inputHtml, sequenceName: "htmlTag", showOnConsole: false);
             if (result.Matched)
             {
-                ParserResultWalker walker = new ParserResultWalker(result.Results[0], showOnConsoleDefault: true);
-                walker.Visit();
+                //ParserResultWalker walker = new ParserResultWalker(result.Results[0], showOnConsoleDefault: true);
+                //walker.Visit();
 
                 Console.WriteLine();
                 ConsoleWalker walker2 = new ConsoleWalker(result.Results[0]);
@@ -178,27 +172,65 @@ namespace LexerParser1
             }
             Console.ForegroundColor = ConsoleColor.Gray;
 
-            string ruleNum = "ruleNum = %% digits %%;";
-            string ruleFactor = "ruleFactor = ['-'], (ruleNum | ('(', &ruleExpr, ')'));";
-            string ruleTerm = "ruleTerm = ruleFactor, { ('*', ruleFactor) | ('/', ruleFactor) };";
-            string ruleExpr = "ruleExpr = ruleTerm, { ('+', ruleTerm) | ('-', ruleTerm) };";
+            //string ruleNum = "ruleNum = %% digits %%;";
+            //string ruleFactor = "ruleFactor = ['-'], (ruleNum | ('(', &ruleExpr, ')'));";
+            string mathNegative = "mathNegative = hyphen;";
+            string mathDecimal = "mathDecimal = period;";
+            string mathNum = "mathNum = [mathNegative], digits, [ mathDecimal, digits ];";
+            string mathAdd = "mathAdd = plus;";
+            string mathSubtract = "mathSubtract = hyphen;";
+            string mathMultiply = "mathMultiply = asterisk;";
+            string mathDivide = "mathDivide = forwardSlash;";
+            string mathFunction = "mathFunction = 'sqrt'|'cos'|'sin'|'tan';";
+            string mathParentheses = "mathParentheses = [mathFunction], parenthesisOpen, &mathExpr, parenthesisClose;";
+            string mathFactor = "mathFactor = (mathNum | mathParentheses);";
+            string mathTerm = "mathTerm = mathFactor, { (mathMultiply, mathFactor) | (mathDivide, mathFactor) };";
+            string mathExpr = "mathExpr = mathTerm, { (mathAdd, mathTerm) | (mathSubtract, mathTerm) };";
 
-            //parser.EBNFAddRuleFast(ruleNum);
-            //parser.EBNFAddRuleFast(ruleFactor);
-            //parser.EBNFAddRuleFast(ruleTerm);
-            //parser.EBNFAddRuleFast(ruleExpr);
+            parser.AddEBNFRule(mathNegative);
+            parser.AddEBNFRule(mathDecimal);
+            parser.AddEBNFRule(mathNum);
+            parser.AddEBNFRule(mathAdd);
+            parser.AddEBNFRule(mathSubtract);
+            parser.AddEBNFRule(mathMultiply);
+            parser.AddEBNFRule(mathDivide);
+            parser.AddEBNFRule(mathFunction);
+            parser.AddEBNFRule(mathParentheses);
+            parser.AddEBNFRule(mathFactor);
+            parser.AddEBNFRule(mathTerm);
+            parser.AddEBNFRule(mathExpr);
 
-            parser.AddEBNFRule(ruleNum);
-            parser.AddEBNFRule(ruleFactor);
-            parser.AddEBNFRule(ruleTerm);
-            parser.AddEBNFRule(ruleExpr);
-
-            string inputCalc = "3*(2+1)";
-            var resultCalc = parser.Parse(inputCalc, sequenceName: "ruleExpr", showOnConsole: false);
+            string inputCalc = "sqrt((-3*2.5)+1.2+(2*7*5))*12.5";
+            var resultCalc = parser.Parse(inputCalc, sequenceName: "mathExpr", showOnConsole: false);
             if (resultCalc.Matched)
             {
-                ParserResultWalker walker3 = new ParserResultWalker(resultCalc.Results[0], showOnConsoleDefault: true);
-                walker3.Visit();
+                var exprs = resultCalc.Results[0].GetDescendantsOfType(new string[] { "mathExpr" });
+
+                for(int i=0;i<exprs.Count;i++)
+                {
+                    Console.WriteLine($"Expression:{exprs[i]}");
+                    var nums = exprs[i].GetDescendantsOfType(new string[] { "mathNum" });
+                    var signs = exprs[i].GetDescendantsOfType(new string[] { "mathAdd", "mathSubtract", "mathMultiply", "mathDivide" });
+                    var functions = exprs[i].GetDescendantsOfType(new string[] { "mathFunction" });
+                    foreach(var num in nums)
+                    {
+                        Console.WriteLine($"- Number:{num}");
+                    }
+                    foreach(var sign in signs)
+                    {
+                        Console.WriteLine($"- Sign:{sign}");
+                    }
+                    foreach (var func in functions)
+                    {
+                        Console.WriteLine($"- Function:{func}");
+                    }
+                    Console.WriteLine();
+                }
+
+                Console.WriteLine(inputCalc);
+
+                //ParserResultWalker walker3 = new ParserResultWalker(resultCalc.Results[0], showOnConsoleDefault: true);
+                //walker3.Visit();
             }
         }
     }

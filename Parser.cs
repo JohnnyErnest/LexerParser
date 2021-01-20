@@ -200,10 +200,30 @@ namespace LexerParser1
                 }
             }
             public (string, int, int, int) InnerResultsMeta { get {
-                    string text = InnerResultsText;
-                    int minStart = MinStart();
-                    int maxEnd = MaxEnd();
-                    return (text, minStart, maxEnd, maxEnd - minStart);
+                    if (InnerResults.Count == 0)
+                    {
+                        if (Span != null)
+                        {
+                            string text = Span.Text;
+                            int minStart = Span.Start;
+                            int maxEnd = Span.End;
+                            return (text, minStart, maxEnd, maxEnd - minStart);
+                        }
+                        else
+                        {
+                            string text = "";
+                            int minStart = -1;
+                            int maxEnd = -1;
+                            return (text, minStart, maxEnd, maxEnd - minStart);
+                        }
+                    }
+                    else
+                    {
+                        string text = InnerResultsText;
+                        int minStart = MinStart();
+                        int maxEnd = MaxEnd();
+                        return (text, minStart, maxEnd, maxEnd - minStart);
+                    }
                 } 
             }
             public override string ToString()
@@ -224,7 +244,7 @@ namespace LexerParser1
                     spanStr = Span.ToString();
                 }
                 string varName = (!string.IsNullOrEmpty(VariableName) ? VariableName : "");
-                return $"[Lvl:{Level}, Name:{Name}, Seq:{((Sequence != null) ? Sequence.SequenceName : "null")}, Var:{varName}:{variableStr}, Span:{spanStr}, Inner:{innerStr}]";
+                return $"[Lvl:{Level}, Name:{Name}, Seq:{((Sequence != null) ? Sequence.SequenceName : "null")}, Var:{varName}:{variableStr}, Span:{spanStr}, Inner:{innerStr}, (Start:{MinStart()}/End:{MaxEnd()})]";
             }
             public string GetJson()
             {
@@ -1396,8 +1416,8 @@ namespace LexerParser1
                     string text = item.InnerResultsText;
                     var meta = item.InnerResultsMeta;
                     string newString = identifierText + ":::" + "ebnfTerminal" + ":" + item.Level + ":" + idx;
-                    if (text.StartsWith("\"")) { text = text.Substring(1, text.Length - 1); }
-                    if (text.EndsWith("\"")) { text = text.Substring(0, text.Length - 1); }
+                    if (text.StartsWith("\"") || text.StartsWith("'")) { text = text.Substring(1, text.Length - 1); }
+                    if (text.EndsWith("\"") || text.EndsWith("'")) { text = text.Substring(0, text.Length - 1); }
                     //textStrings.Add((newString, false, false, text, true, true));
                     textStrings.Add((newString, false, false, "str"+newString, true));
                     InputLexer.Rules.Add(new Lexer.LexerRules.StringLexerRule("str"+newString, text));
@@ -1417,6 +1437,7 @@ namespace LexerParser1
                     bool isRepeating = false;
                     if (text.StartsWith("[")) { text = text.Substring(1, text.Length - 2); isOptional = true; }
                     else if (text.StartsWith("{")) { text = text.Substring(1, text.Length - 2); isOptional = true; isRepeating = true; }
+                    else if (text.StartsWith("(")) { text = text.Substring(1, text.Length - 2); }
                     else if (text.StartsWith("%%")) { text = text.Substring(2, text.Length - 4); isRepeating = true; }
                     text = text.Trim();
                     textStrings.Add((newString, isOptional, isRepeating, text, true));
