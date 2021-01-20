@@ -49,9 +49,11 @@ Output is an indicator whether the input matched a parsing rule, as well as an A
 
 In laymen terms, you can parse an HTML to a syntax tree of nodes and analyze it, as in the usage example above. If you add the rules for CSS, SQL, and so on, you can do the same with the respective languages.
 
-Note that adding EBNF rules ay runtime is a bit costly on performance currently because it reparses internal parts of text while adding subnodes such as "( nodes, nodes, nodes )", "[ nodes, nodes, nodes ]", and "{ nodes, nodes, nodes }" while adding subrules and replacing text via substitution internally, a faster version is in the works. 
+~~Note that adding EBNF rules ay runtime is a bit costly on performance currently because blah blah blah.~~ Adding EBNF rules has been optimized and is now near instantaneous.
 
-Also note, in addition to EBNF operators { ... } for optional repeating blocks, and [ ... ] for optional rule blocks that appear zero or one times, you can also use %% ... %% to create mandatory repeating blocks that must appear at least once as an extension to Extended BNF. Also when adding EBNF rules, there is normally a lookup to see if the Lexer Rule or Parser Sequence exists, if not, it is added to a list of Unknowns and is unused. You can override this behavior with putting @ in front of the Lexer Rule or & in front of the Parser Sequence if you know ahead of time that the Rule or Sequence will be added later.
+Also note, in addition to EBNF operators { ... } for optional repeating blocks, and [ ... ] for optional rule blocks that appear zero or one times, you can also use %% ... %% to create mandatory repeating blocks that must appear at least once as an extension to Extended BNF. 
+
+Also when adding EBNF rules, there is normally a lookup to see if the Lexer Rule or Parser Sequence exists, if not, it is added to a list of Unknowns and is unused. You can override this behavior with putting @ in front of the Lexer Rule or & in front of the Parser Sequence if you know ahead of time that the Rule or Sequence will be added later.
 
 **To Do**
 
