@@ -120,7 +120,7 @@ namespace LexerParser
             Nodes.Add(("token", span.Text));
             if (span.Text == "=")
             {
-                Console.ForegroundColor = ConsoleColor.Gray;
+                Console.ForegroundColor = ConsoleColor.DarkBlue;
                 Console.Write(span.Text);
             }
             else if (span.Text == "\"")

@@ -237,7 +237,7 @@ namespace LexerParser
                 }
             }
         }
-        public class Span
+        public class Span : ICloneable
         {
             public int Start { get; set; }
             public int End { get { return Start + Length; } }
@@ -245,6 +245,21 @@ namespace LexerParser
             public string Text { get; set; }
             public LexerRules.ILexerRule Rule { get; set; }
             public List<Span> InnerSpans { get; set; }
+
+            public object Clone()
+            {
+                var span = new Span() { Text = this.Text, Start = this.Start, Rule = this.Rule };
+                span.InnerSpans = new List<Span>();
+                if (this.InnerSpans != null)
+                {
+                    foreach (var span1 in this.InnerSpans)
+                    {
+                        span.InnerSpans.Add(span1.Clone() as Span);
+                    }
+                }
+                return span;
+            }
+
             public override string ToString()
             {
                 return $"[Start:{Start} Text:{Text}, Rule:{Rule.RuleName}/{Rule.RuleType}, End/Length:{End}/{Length}]";

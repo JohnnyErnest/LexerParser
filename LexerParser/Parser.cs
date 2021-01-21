@@ -10,23 +10,33 @@ namespace LexerParser
 {
     public class Parser
     {
-        public class ParserSequence
+        public class ParserSequence : ICloneable
         {
             public string SequenceName { get; set; }
             public List<Parser.SequenceSection> Sections { get; set; }
-
             public override string ToString()
             {
                 return $"[ParserSequence: {SequenceName}, Sections: {(Sections != null ? Sections.Count().ToString() : "(Null)")}]";
             }
-
-            public class EvaluateSequenceSectionResult
+            public class EvaluateSequenceSectionResult : ICloneable
             {
                 public string MatchedRule { get; set; }
                 public string Input { get; set; }
                 public string OriginalInput { get; set; }
                 public int StartIndex { get; set; }
                 public int Length { get; set; }
+                public object Clone()
+                {
+                    var result = new EvaluateSequenceSectionResult()
+                    {
+                        MatchedRule = this.MatchedRule,
+                        Input = this.Input,
+                        OriginalInput = this.OriginalInput,
+                        Length = this.StartIndex,
+                        StartIndex = this.Length
+                    };
+                    return result;
+                }
             }
             EvaluateSequenceSectionResult EvaluateSequenceSection(string input, Lexer lexer, Parser.SequenceSection section)
             {
@@ -116,8 +126,21 @@ namespace LexerParser
                 }
                 return true;
             }
+            public object Clone()
+            {
+                var result = new ParserSequence()
+                {
+                    SequenceName = this.SequenceName,
+                    Sections = new List<SequenceSection>()
+                };
+                foreach(var section in Sections)
+                {
+                    result.Sections.Add(section.Clone() as Parser.SequenceSection);
+                }
+                return result;
+            }
         }
-        public class SequenceSection
+        public class SequenceSection : ICloneable
         {
             public bool IsOptional { get; set; }
             public bool IsRepeating { get; set; }
@@ -133,6 +156,21 @@ namespace LexerParser
             public string[] EBNFChoices { get { return !string.IsNullOrEmpty(EBNFItemList) ? EBNFItemList.Split('|').Select(x => x.Trim()).ToArray() : null; } }
             public string[] EBNFConcatenations { get { return !string.IsNullOrEmpty(EBNFItemList) ? EBNFItemList.Split(',').Select(x => x.Trim()).ToArray() : null; } }
             public string SyntaxColor { get; set; }
+            public object Clone()
+            {
+                var result = new SequenceSection()
+                {
+                    EBNFItemList = this.EBNFItemList,
+                    IsOptional = this.IsOptional,
+                    IsRepeating = this.IsRepeating,
+                    SequenceList = this.SequenceList,
+                    SyntaxColor = this.SyntaxColor,
+                    TokenList = this.TokenList,
+                    Unknowns = this.Unknowns,
+                    VariableName = this.VariableName                    
+                };
+                return result;
+            }
             public override string ToString()
             {
                 string tokenStr = "";
@@ -148,27 +186,61 @@ namespace LexerParser
                 return $"[Opt:{IsOptional}, Rep:{IsRepeating}, Tokens:{tokenStr}, Seq:{seqStr}]";
             }
         }
-        public class ParserSequenceAndSection
+        public class ParserSequenceAndSection : ICloneable
         {
             public ParserSequence Sequence { get; set; }
             public SequenceSection Section { get; set; }
             public ParserResult Node { get; set; }
             public string NodeText { get; set; }
+            public object Clone()
+            {
+                var result = new ParserSequenceAndSection()
+                {
+                    Sequence = this.Sequence.Clone() as ParserSequence,
+                    Node = this.Node.Clone() as ParserResult,
+                    NodeText = this.NodeText,
+                    Section = this.Section.Clone() as SequenceSection
+                };
+                return result;
+            }
         }
-        public class EvaluationResult
+        public class EvaluationResult : ICloneable
         {
             public Type EvaluationType { get; set; }
             public object EvaluationValue { get; set; }
             public string EvaluationText { get; set; }
+            public object Clone()
+            {
+                EvaluationResult eval = new EvaluationResult() {
+                    EvaluationText = this.EvaluationText, 
+                    EvaluationType = this.EvaluationType, 
+                    EvaluationValue = this.EvaluationValue 
+                };
+                return eval;
+            }
+            public override string ToString()
+            {
+                return $"[Eval Result:{EvaluationType.Name}/{EvaluationText}]";
+            }
         }
-        public class ParserResult
+        public class ParserResult : ICloneable
         {
-            public class EBNFContainmentInfo
+            public class EBNFContainmentInfo : ICloneable
             {
                 public string IdentifierName { get; set; }
                 public bool Contains { get; set; }
                 public bool ContainedBy { get; set; }
                 public bool IsSameNode { get; set; }
+                public object Clone()
+                {
+                    return new EBNFContainmentInfo()
+                    {
+                        ContainedBy = ContainedBy,
+                        Contains = Contains,
+                        IdentifierName = IdentifierName,
+                        IsSameNode = IsSameNode
+                    };
+                }
             }
             public string Name { get; set; }
             public Lexer.Span Span { get; set; }
@@ -240,35 +312,16 @@ namespace LexerParser
                     return null;
                 }
             }
+            public string GroupName { get; set; }
+            public bool Evaluated { get; set; }
             public EvaluationResult EvaluationResult { get; set; }
             public Func<ParserResult, EvaluationResult> EvaluationFunction { get; set; }
-            string GetInnerStringRecursive(List<ParserResult> results)
-            {
-                string variableStr = "";
-                if (InnerResults != null)
-                {
-                    if (InnerResults.Count > 0)
-                    {
-                        foreach (var inner in results)
-                        {
-                            if (inner.Span != null)
-                            {
-                                if (!string.IsNullOrEmpty(inner.Span.Text))
-                                {
-                                    variableStr += inner.Span.Text;
-                                }
-                            }
-                            variableStr += GetInnerStringRecursive(inner.InnerResults);
-                        }
-                    }
-                }
-                return variableStr;
-            }
             public string InnerResultsText
             {
                 get
                 {
-                    return GetInnerStringRecursive(InnerResults);
+                    string span = (Span == null) ? "" : Span.Text;
+                    return GetInnerStringRecursive(InnerResults) + span;
                 }
             }
             public (string, int, int, int) InnerResultsMeta { get {
@@ -323,6 +376,28 @@ namespace LexerParser
                 string varName = (!string.IsNullOrEmpty(VariableName) ? VariableName : "");
                 return $"[Lvl:{Level}, Name:{Name}, Seq:{((Sequence != null) ? Sequence.SequenceName : "null")}, Var:{varName}:{variableStr}, Span:{spanStr}, Inner:{innerStr}, (Start:{MinStart()}/End:{MaxEnd()}), Eval:{evalStr}]";
             }
+            string GetInnerStringRecursive(List<ParserResult> results)
+            {
+                string variableStr = "";
+                if (InnerResults != null)
+                {
+                    if (InnerResults.Count > 0)
+                    {
+                        foreach (var inner in results)
+                        {
+                            if (inner.Span != null)
+                            {
+                                if (!string.IsNullOrEmpty(inner.Span.Text))
+                                {
+                                    variableStr += inner.Span.Text;
+                                }
+                            }
+                            variableStr += GetInnerStringRecursive(inner.InnerResults);
+                        }
+                    }
+                }
+                return variableStr;
+            }
             public string GetJson()
             {
                 return JsonConvert.SerializeObject(this);
@@ -340,6 +415,21 @@ namespace LexerParser
                     }
                 }
                 if (descendantTypes.Contains(start.Name)) { results.Add(start); }
+                return results;
+            }
+            public List<ParserResult> GetDescendantsOfTypeByGroupName(string[] descendantTypes, List<ParserResult> input = null, ParserResult start = null)
+            {
+                if (start == null) { start = this; }
+                List<ParserResult> results = new List<ParserResult>();
+                if (input != null) { results = input; }
+                if (start.InnerResults != null)
+                {
+                    foreach (var inner in start.InnerResults)
+                    {
+                        GetDescendantsOfTypeByGroupName(descendantTypes, results, inner);
+                    }
+                }
+                if (descendantTypes.Contains(start.GroupName)) { results.Add(start); }
                 return results;
             }
             public int MinStart(int minValue = Int32.MaxValue, ParserResult start = null)
@@ -470,6 +560,37 @@ namespace LexerParser
                 if (start == node) { return true; }
                 return false;
             }
+            public object Clone()
+            {
+                var result = new ParserResult()
+                {
+                    Evaluated = this.Evaluated,
+                    EvaluationFunction = this.EvaluationFunction,
+                    EvaluationResult = this.EvaluationResult,
+                    VariableName = this.VariableName,
+                    VariableValue = this.VariableValue,
+                    InnerResults = new List<ParserResult>(),
+                    Level = this.Level,
+                    Name = this.Name,
+                    GroupName = this.GroupName,
+                    Variables = new List<(string, string)>(),
+                    Parent = new ParserSequenceAndSection(),
+                    Root = new ParserSequenceAndSection()
+                };
+                if (this.Span != null)
+                {
+                    result.Span = this.Span.Clone() as Lexer.Span;
+                }
+                foreach (var inner in InnerResults)
+                {
+                    result.InnerResults.Add(inner.Clone() as ParserResult);
+                }
+                foreach(var vari in Variables)
+                {
+                    result.Variables.Add((vari.Item1, vari.Item2));
+                }
+                return result;
+            }
         }
         public class Result
         {
@@ -588,6 +709,12 @@ namespace LexerParser
                                     found = true;
                                     foundInParsed = true;
                                     index += span.Length;
+                                    string groupName = rule.RuleName;
+                                    if (groupName.Contains(":::"))
+                                    {
+                                        int strIndex = groupName.IndexOf(":::");
+                                        groupName = groupName.Substring(0, strIndex);
+                                    }
                                     var result1 = new ParserResult
                                     {
                                         Level = level,
@@ -597,6 +724,7 @@ namespace LexerParser
                                         Section = section,
                                         Sequence = sequence,
                                         Name = rule.RuleName,
+                                        GroupName = groupName,
                                         Parent = parent,
                                         Root = root
                                     };
@@ -615,6 +743,12 @@ namespace LexerParser
                                             found = true;
                                             foundInParsed = true;
                                             index += inner.Length;
+                                            string groupName = rule.RuleName;
+                                            if (groupName.Contains(":::"))
+                                            {
+                                                int strIndex = groupName.IndexOf(":::");
+                                                groupName = groupName.Substring(0, strIndex);
+                                            }
                                             var result1 = new ParserResult
                                             {
                                                 Level = level + 1,
@@ -624,6 +758,7 @@ namespace LexerParser
                                                 Section = section,
                                                 Sequence = sequence,
                                                 Name = rule.RuleName,
+                                                GroupName = groupName,
                                                 Root = root,
                                                 Parent = parent
                                             };
@@ -634,65 +769,65 @@ namespace LexerParser
                                 }
                             }
                         }
-                        bool foundInRegular = false;
-                        foreach (var span in spans)
-                        {
-                            if (!found)
-                            {
-                                if (span.Rule.RuleName == rule.RuleName)
-                                {
-                                    found = true;
-                                    foundInRegular = true;
-                                    index += span.Length;
-                                    var result1 = new ParserResult
-                                    {
-                                        Level = level,
-                                        VariableName = section.VariableName,
-                                        VariableValue = span.Text,
-                                        Span = span,
-                                        Section = section,
-                                        Sequence = sequence,
-                                        Name = rule.RuleName,
-                                        Parent = parent,
-                                        Root = root
-                                    };
-                                    //parent.Node = result1;
-                                    variables.Add(result1);
-                                }
-                            }
-                            if (!found)
-                            {
-                                foreach (var inner in span.InnerSpans.Where(x => x.Start <= index && index < x.End))
-                                {
-                                    if (!found)
-                                    {
-                                        if (inner.Rule.RuleName == rule.RuleName)
-                                        {
-                                            found = true;
-                                            foundInRegular = true;
-                                            index += inner.Length;
-                                            var result1 = new ParserResult
-                                            {
-                                                Level = level + 1,
-                                                VariableName = section.VariableName,
-                                                VariableValue = inner.Text,
-                                                Span = inner,
-                                                Section = section,
-                                                Sequence = sequence,
-                                                Name = rule.RuleName,
-                                                Root = root,
-                                                Parent = parent
-                                            };
-                                            //parent.Node = result1;
-                                            variables.Add(result1);
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        if (foundInRegular == true && foundInParsed == false)
-                        {
-                        }
+                        //bool foundInRegular = false;
+                        //foreach (var span in spans)
+                        //{
+                        //    if (!found)
+                        //    {
+                        //        if (span.Rule.RuleName == rule.RuleName)
+                        //        {
+                        //            found = true;
+                        //            foundInRegular = true;
+                        //            index += span.Length;
+                        //            var result1 = new ParserResult
+                        //            {
+                        //                Level = level,
+                        //                VariableName = section.VariableName,
+                        //                VariableValue = span.Text,
+                        //                Span = span,
+                        //                Section = section,
+                        //                Sequence = sequence,
+                        //                Name = rule.RuleName,
+                        //                Parent = parent,
+                        //                Root = root
+                        //            };
+                        //            //parent.Node = result1;
+                        //            variables.Add(result1);
+                        //        }
+                        //    }
+                        //    if (!found)
+                        //    {
+                        //        foreach (var inner in span.InnerSpans.Where(x => x.Start <= index && index < x.End))
+                        //        {
+                        //            if (!found)
+                        //            {
+                        //                if (inner.Rule.RuleName == rule.RuleName)
+                        //                {
+                        //                    found = true;
+                        //                    foundInRegular = true;
+                        //                    index += inner.Length;
+                        //                    var result1 = new ParserResult
+                        //                    {
+                        //                        Level = level + 1,
+                        //                        VariableName = section.VariableName,
+                        //                        VariableValue = inner.Text,
+                        //                        Span = inner,
+                        //                        Section = section,
+                        //                        Sequence = sequence,
+                        //                        Name = rule.RuleName,
+                        //                        Root = root,
+                        //                        Parent = parent
+                        //                    };
+                        //                    //parent.Node = result1;
+                        //                    variables.Add(result1);
+                        //                }
+                        //            }
+                        //        }
+                        //    }
+                        //}
+                        //if (foundInRegular == true && foundInParsed == false)
+                        //{
+                        //}
                     }
                 }
             }
@@ -742,10 +877,17 @@ namespace LexerParser
                                 found = result.Item2;
                                 if (found)
                                 {
+                                    string groupName = seq.SequenceName;
+                                    if (groupName.Contains(":::"))
+                                    {
+                                        int strIndex = groupName.IndexOf(":::");
+                                        groupName = groupName.Substring(0, strIndex);
+                                    }
                                     var parserResult = new ParserResult()
                                     {
                                         Level = level + 1,
                                         Name = seq.SequenceName,
+                                        GroupName = groupName,
                                         InnerResults = result.Item3,
                                         Sequence = seq,
                                         Section = section,
@@ -927,7 +1069,19 @@ namespace LexerParser
 
                 var root = new ParserSequenceAndSection() { Sequence = sequence, Section = null };
                 var parent = new ParserSequenceAndSection() { Sequence = sequence, Section = null };
-                var parserResult = new ParserResult() { Name = sequence.SequenceName, Level = level, Parent = parent, Root = root };
+                string groupName = sequence.SequenceName;
+                if (groupName.Contains(":::"))
+                {
+                    int strIndex = groupName.IndexOf(":::");
+                    groupName = groupName.Substring(0, strIndex);
+                }
+                var parserResult = new ParserResult() { 
+                    Name = sequence.SequenceName, 
+                    GroupName = groupName,
+                    Level = level, 
+                    Parent = parent, 
+                    Root = root 
+                };
                 root.Node = parserResult;
                 parent.Node = parserResult;
 
@@ -959,7 +1113,7 @@ namespace LexerParser
             }
             return (found, currentSequence, items);
         }
-        List<ParserResult> OrganizeParentNodes(List<ParserResult> nodes, int level = 0, ParserResult parent = null)
+        public List<ParserResult> OrganizeParentNodes(List<ParserResult> nodes, int level = 0, ParserResult parent = null)
         {
             foreach (var node in nodes)
             {
@@ -1472,7 +1626,6 @@ namespace LexerParser
             }
             Console.WriteLine();
         }
-
         public void AddEBNFRule(string input)
         {
             var firstResult = Parse(input, sequenceName: "rule");
@@ -1548,7 +1701,6 @@ namespace LexerParser
                 }
             }
         }
-
         public void AddEBNFRuleDeprecated(string inputEBNF)
         {
             var firstResult = Parse(inputEBNF, sequenceName: "rule");
