@@ -56,8 +56,6 @@ namespace LexerParser1
             }
             Console.ForegroundColor = ConsoleColor.Gray;
 
-            //string ruleNum = "ruleNum = %% digits %%;";
-            //string ruleFactor = "ruleFactor = ['-'], (ruleNum | ('(', &ruleExpr, ')'));";
             string mathNegative = "mathNegative = hyphen;";
             string mathDecimal = "mathDecimal = period;";
             string mathNum = "mathNum = [mathNegative], digits, [ mathDecimal, digits ];";
@@ -65,7 +63,9 @@ namespace LexerParser1
             string mathSubtract = "mathSubtract = hyphen;";
             string mathMultiply = "mathMultiply = asterisk;";
             string mathDivide = "mathDivide = forwardSlash;";
+
             string mathFunction = "mathFunction = 'sqrt'|'cos'|'sin'|'tan';";
+
             string mathParentheses = "mathParentheses = [mathFunction], parenthesisOpen, &mathExpr, parenthesisClose;";
             string mathFactor = "mathFactor = (mathNum | mathParentheses);";
             string mathTerm = "mathTerm = mathFactor, { (mathMultiply, mathFactor) | (mathDivide, mathFactor) };";
@@ -84,39 +84,223 @@ namespace LexerParser1
             parser.AddEBNFRule(mathTerm);
             parser.AddEBNFRule(mathExpr);
 
-            string inputCalc = "sqrt((-3*2.5)+1.2+(2*7*5))*12.5";
+            string inputCalc = "((3*2.5)+1.2)+((2*7*5)*12.5)+5";
+            //string inputCalc = "((3*2.5)+1.2)*5.7";
             var resultCalc = parser.Parse(inputCalc, sequenceName: "mathExpr", showOnConsole: false);
             if (resultCalc.Matched)
             {
+                var secondary = resultCalc.Results[0].Clone() as Parser.ParserResult;
+                List<Parser.ParserResult> results1 = new List<Parser.ParserResult>();
+                results1.Add(secondary);
+                results1 = parser.OrganizeParentNodes(results1);
+
+                Func<Parser.ParserResult, int, Parser.ParserResult> checkGroups = null;
+                checkGroups = new Func<Parser.ParserResult, int, Parser.ParserResult>((input, level) =>
+                {
+                    string levels = "".PadLeft(level, ' ');
+                    Console.WriteLine($"{levels}Group:{input.GroupName}, Name:{input.Name}, Inner:{input.InnerResultsText}, Eval:{input.EvaluationResult}");
+                    foreach(var g in input.InnerResults)
+                    {
+                        checkGroups(g, level + 1);
+                    }
+                    return null;
+                });
+
+                Console.WriteLine("Initial Calculation:" + inputCalc);
+                checkGroups(resultCalc.Results[0], 0);
+
                 var exprs = resultCalc.Results[0].GetDescendantsOfType(new string[] { "mathExpr" });
 
-                for(int i=0;i<exprs.Count;i++)
+                bool done = false;
+                int idx = 0;
+                while(!done)
                 {
-                    Console.WriteLine($"Expression:{exprs[i]}");
-                    var nums = exprs[i].GetDescendantsOfType(new string[] { "mathNum" });
-                    var signs = exprs[i].GetDescendantsOfType(new string[] { "mathAdd", "mathSubtract", "mathMultiply", "mathDivide" });
-                    var functions = exprs[i].GetDescendantsOfType(new string[] { "mathFunction" });
-                    var all = exprs[i].GetDescendantsOfType(new string[] { "mathAdd", "mathSubtract", "mathMultiply", "mathDivide", "mathNum", "mathFunction", "mathFactor", "mathTerm", "mathExpr" }).OrderBy(x => x.Level).ThenBy(x => x.MinStart()).ToArray();
-                    var allFactors = exprs[i].GetDescendantsOfType(new string[] { "mathMultiply", "mathDivide", "mathFactor" }).ToArray();
-                    foreach (var num in exprs[i].GetDescendantsOfType(new string[] { "mathNum" }))
+                    Console.WriteLine("Evaluating Iteration " + idx);
+
+                    List<Parser.EvaluationResult> numbers = new List<Parser.EvaluationResult>();
+                    // Roll Up Numbers
+                    for (int i = 0; i < exprs.Count; i++)
                     {
-                        num.EvaluationFunction = new Func<Parser.ParserResult, Parser.EvaluationResult>(num =>
+                        double value = 0.0;
+                        foreach (var num in exprs[i].GetDescendantsOfType(new string[] { "mathNum" }).Where(x => x.Evaluated == false))
                         {
-                            return new Parser.EvaluationResult()
+                            num.EvaluationFunction = new Func<Parser.ParserResult, Parser.EvaluationResult>(num =>
                             {
-                                EvaluationType = typeof(double),
-                                EvaluationValue = double.Parse(num.InnerResultsText),
-                                EvaluationText = double.Parse(num.InnerResultsText).ToString()
+                                value = double.Parse(num.InnerResultsText);
+                                return new Parser.EvaluationResult()
+                                {
+                                    EvaluationType = typeof(double),
+                                    EvaluationValue = value,
+                                    EvaluationText = value.ToString()
+                                };
+                            });
+                            if (num.EvaluationResult == null)
+                            {
+                                num.EvaluationResult = num.EvaluationFunction(num);
+                                num.Evaluated = true;
+                            }
+                            int min = num.MinStart();
+                            num.Span = new Lexer.Span()
+                            {
+                                Start = min,                                
+                                Text = value.ToString(),
+                                Rule = new Lexer.LexerRules.StringLexerRule("", ""),
+                                InnerSpans = new List<Lexer.Span>(),                                
                             };
-                        });
-                        if (num.EvaluationResult == null)
-                        {
-                            num.EvaluationResult = num.EvaluationFunction(num);
+                            num.InnerResults = new List<Parser.ParserResult>();
+                            numbers.Add(num.EvaluationResult);
+                            Console.WriteLine($"Number:{num}");
                         }
-                        Console.WriteLine($"- Number:{num}");
                     }
-                    Console.WriteLine();
+                    // Roll Up Signs
+                    for (int i = 0; i < exprs.Count; i++)
+                    {
+                        foreach (var num in exprs[i].GetDescendantsOfType(new string[] { "mathMultiply", "mathDivide", "mathAdd", "mathSubtract" }).Where(x => x.Evaluated == false))
+                        {
+                            if (num.Name == "mathMultiply" || num.Name == "mathDivide" ||
+                                num.Name == "mathAdd" || num.Name == "mathSubtract")
+                            {
+                                string text = "";
+                                switch (num.Name)
+                                {
+                                    case "mathMultiply": text = "*"; break;
+                                    case "mathDivide": text = "*"; break;
+                                    case "mathAdd": text = "*"; break;
+                                    case "mathSubtract": text = "*"; break;
+                                    default: break;
+                                }
+                                num.Evaluated = true;
+                                num.EvaluationResult = new Parser.EvaluationResult() { EvaluationType = typeof(string), EvaluationText = text, EvaluationValue = text };
+                                int minStart = num.MinStart();
+                                num.InnerResults = new List<Parser.ParserResult>();
+                                num.Span = new Lexer.Span() { Start = minStart, Text = text, InnerSpans = new List<Lexer.Span>(), Rule = new Lexer.LexerRules.StringLexerRule("", text) };
+                            }
+                        }
+                    }
+                    // Roll Up Non-Parenthetical Factors from Numbers
+                    for (int i = 0; i < exprs.Count; i++)
+                    {
+                        foreach (var num in exprs[i].GetDescendantsOfType(new string[] { "mathFactor" }).Where(x => x.Evaluated == false))
+                        {
+                            if (num.GetDescendantsOfType(new[] { "mathParentheses" }).Count() == 0 &&
+                                num.GetDescendantsOfType(new[] { "mathNum" }).Count() == 1)
+                            {
+                                var numbers1 = num.GetDescendantsOfType(new[] { "mathNum" }).First();
+                                num.Span = numbers1.Span.Clone() as Lexer.Span;
+                                num.EvaluationResult = numbers1.EvaluationResult.Clone() as Parser.EvaluationResult;
+                                num.Evaluated = true;
+                                num.InnerResults = new List<Parser.ParserResult>();
+                                num.Name = "mathNum";
+                                num.GroupName = "mathNum";
+                            }
+                        }
+                    }
+                    // Roll Up Non-Parenthetical Term Equations
+                    for (int i = 0; i < exprs.Count; i++)
+                    {
+                        foreach (var num in exprs[i].GetDescendantsOfType(new string[] { "mathTerm" }).Where(x => x.Evaluated == false &&
+                            x.GetDescendantsOfType(new[] { "mathParentheses" }).Count() == 0))
+                        {
+                            var terms = num.GetDescendantsOfType(new[] { "mathMultiply", "mathDivide", "mathNum" }).OrderBy(x => x.MinStart());
+                            double value = 0.0;
+                            string currentOp = "";
+                            foreach(var term in terms)
+                            {
+                                if (term.Name == "mathMultiply") { currentOp = "*"; }
+                                else if (term.Name == "mathDivide") { currentOp = "/"; }
+                                else
+                                {
+                                    if (currentOp == "" && term.Name == "mathNum") { value = (double)term.EvaluationResult.EvaluationValue; }
+                                    else if (currentOp == "*" && term.Name == "mathNum") { value *= (double)term.EvaluationResult.EvaluationValue; }
+                                    else if (currentOp == "/" && term.Name == "mathNum") { value /= (double)term.EvaluationResult.EvaluationValue; }
+                                }                                
+                            }
+                            int start = num.MinStart();
+                            num.EvaluationResult = new Parser.EvaluationResult()
+                            {
+                                EvaluationText = value.ToString(),
+                                EvaluationType = typeof(double),
+                                EvaluationValue = value
+                            };
+                            num.Evaluated = true;
+                            num.Name = "mathNum";
+                            num.GroupName = "mathNum";
+                            num.InnerResults = new List<Parser.ParserResult>();
+                            num.Span = new Lexer.Span() { InnerSpans = new List<Lexer.Span>(), Start = start, Text = value.ToString(), Rule = new Lexer.LexerRules.StringLexerRule("", value.ToString()) };
+                        }
+
+                    }
+                    // Roll Up Non-Parenthetical Expressions
+                    for (int i = 0; i < exprs.Count; i++)
+                    {
+                        foreach (var num in exprs[i].GetDescendantsOfType(new string[] { "mathExpr" }).Where(x => x.Evaluated == false &&
+                            x.GetDescendantsOfType(new[] { "mathParentheses" }).Count() == 0))
+                        {
+                            var terms = num.GetDescendantsOfType(new[] { "mathAdd", "mathSubtract", "mathNum" }).OrderBy(x => x.MinStart());
+                            double value = 0.0;
+                            string currentOp = "";
+                            foreach (var term in terms)
+                            {
+                                if (term.Name == "mathAdd") { currentOp = "+"; }
+                                else if (term.Name == "mathSubtract") { currentOp = "-"; }
+                                else
+                                {
+                                    if (currentOp == "" && term.Name == "mathNum") { value = (double)term.EvaluationResult.EvaluationValue; }
+                                    else if (currentOp == "+" && term.Name == "mathNum") { value += (double)term.EvaluationResult.EvaluationValue; }
+                                    else if (currentOp == "-" && term.Name == "mathNum") { value -= (double)term.EvaluationResult.EvaluationValue; }
+                                }
+                            }
+                            int start = num.MinStart();
+                            num.EvaluationResult = new Parser.EvaluationResult()
+                            {
+                                EvaluationText = value.ToString(),
+                                EvaluationType = typeof(double),
+                                EvaluationValue = value
+                            };
+                            num.Evaluated = true;
+                            num.Name = "mathNum";
+                            num.GroupName = "mathNum";
+                            num.InnerResults = new List<Parser.ParserResult>();
+                            num.Span = new Lexer.Span() { InnerSpans = new List<Lexer.Span>(), Start = start, Text = value.ToString(), Rule = new Lexer.LexerRules.StringLexerRule("", value.ToString()) };
+                        }
+                    }
+                    // Roll Up Parentheses with No Expressions
+                    for (int i = 0; i < exprs.Count; i++)
+                    {
+                        foreach (var num in exprs[i].GetDescendantsOfType(new string[] { "mathParentheses" }).Where(x => x.Evaluated == false &&
+                            x.GetDescendantsOfType(new[] { "mathExpr" }).Count() == 0))
+                        {
+                            var numbers1 = num.GetDescendantsOfType(new[] { "mathNum" }).OrderBy(x => x.MinStart());
+                            if (numbers1.Count() == 1)
+                            {
+                                var num1 = numbers1.First();
+                                int start = num.MinStart();
+                                num.EvaluationResult = new Parser.EvaluationResult()
+                                {
+                                    EvaluationText = num1.EvaluationResult.EvaluationValue.ToString(),
+                                    EvaluationType = typeof(double),
+                                    EvaluationValue = num1.EvaluationResult.EvaluationValue
+                                };
+                                num.Evaluated = true;
+                                num.Name = "mathNum";
+                                num.GroupName = "mathNum";
+                                num.InnerResults = new List<Parser.ParserResult>();
+                                num.Span = new Lexer.Span() { InnerSpans = new List<Lexer.Span>(), Start = start, Text = num1.EvaluationResult.EvaluationValue.ToString(), Rule = new Lexer.LexerRules.StringLexerRule("", num1.EvaluationResult.EvaluationValue.ToString()) };
+                            }
+                        }
+                    }
+
+                    Console.WriteLine(inputCalc);
+                    checkGroups(resultCalc.Results[0], 0);
+                    if (resultCalc.Results[0].InnerResults.Count == 0)
+                    {
+                        done = true;
+                    }
+                    idx++;
                 }
+                Console.WriteLine();
+
+                //Program.exprFunc(exprs.Last());
 
                 Console.WriteLine(inputCalc);
 
