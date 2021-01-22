@@ -305,6 +305,7 @@ namespace LexerParser1
                     //Program.exprFunc(exprs.Last());
 
                     Console.WriteLine(inputCalc);
+                    
                     return new Parser.EvaluationResult()
                     {
                         EvaluationText = input.InnerResultsText,
@@ -313,8 +314,6 @@ namespace LexerParser1
                     };
                 });
 
-                //resultCalc.Results[0].EvaluationFunction = funcEvaluate;
-                //resultCalc.Results[0].EvaluationResult = resultCalc.Results[0].EvaluationFunction(resultCalc.Results[0]);
                 results1[0].EvaluationFunction = funcEvaluate;
                 results1[0].EvaluationResult = results1[0].EvaluationFunction(results1[0]);
 
