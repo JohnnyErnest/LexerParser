@@ -85,7 +85,6 @@ namespace LexerParser1
             parser.AddEBNFRule(mathExpr);
 
             string inputCalc = "((3*2.5)+1.2)+((2*7*5)*12.5)+5";
-            //string inputCalc = "((3*2.5)+1.2)*5.7";
             var resultCalc = parser.Parse(inputCalc, sequenceName: "mathExpr", showOnConsole: false);
             if (resultCalc.Matched)
             {
@@ -100,7 +99,7 @@ namespace LexerParser1
                     checkGroups = new Func<Parser.ParserResult, int, Parser.ParserResult>((input1, level) =>
                     {
                         string levels = "".PadLeft(level, ' ');
-                        Console.WriteLine($"{levels}Group:{input.GroupName}, Name:{input1.Name}, Inner:{input1.InnerResultsText}, Eval:{input1.EvaluationResult}");
+                        Console.WriteLine($"{levels}Group:{input1.GroupName}, Name:{input1.Name}, Inner:{input1.InnerResultsText}, Eval:{input1.EvaluationResult}");
                         foreach (var g in input1.InnerResults)
                         {
                             checkGroups(g, level + 1);
@@ -317,7 +316,7 @@ namespace LexerParser1
                 results1[0].EvaluationFunction = funcEvaluate;
                 results1[0].EvaluationResult = results1[0].EvaluationFunction(results1[0]);
 
-                ParserResultWalker walker3 = new ParserResultWalker(resultCalc.Results[0], showOnConsoleDefault: true, filterOutEBNF: true);
+                ParserResultWalker walker3 = new ParserResultWalker(results1[0], showOnConsoleDefault: true, filterOutEBNF: true);
                 walker3.Visit();
             }
         }
