@@ -468,7 +468,7 @@ namespace LexerParser
                 }
                 if (start.Span != null)
                 {
-                    maxValue = Math.Min(maxValue, start.Span.End);
+                    maxValue = Math.Max(maxValue, start.Span.End);
                 }
                 return maxValue;
             }
