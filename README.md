@@ -1,6 +1,6 @@
 # LexerParser
 
-![](https://raw.githubusercontent.com/JohnnyErnest/LexerParser/main/LexerParser2.png | =1261x)
+<img src="https://raw.githubusercontent.com/JohnnyErnest/LexerParser/main/LexerParser2.png" width="1261" style="max-width:1261px">
 
 **Figure 1**) An example use case of LexerParser, some examples of HTML, CSS, and SQL syntax being processed via EBNF rules to syntax highlight user entered texts, and also a mathematical equation being expressed as a syntax node tree and evaluated.
 
