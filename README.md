@@ -9,6 +9,16 @@ You might use LexerParser in your own programming projects for things like synta
 
 Rather than building a static code file beforehand from a static set of rules from a third party tool, LexerParser lets you add and remove Lexer Rules and Parser Sequences dynamically at runtime. Say that you want to build an expression calculator, you feed in the rules to the Lexer and Parser and then feed in expression statements as strings to parse, such as "3*(2+1)" and other expression statements.
 
+**How do I use it?**:
+
+- Download Visual Studio 2019 Community for free: https://visualstudio.microsoft.com/downloads/
+- Download this Solution, unzip it, and load it in VS2019 Community
+- Press F5 to Run while Debugging
+- Enjoy
+- Grab a Soda
+- Then start your own new project in Visual Studio
+- and add a reference to LexerWalker via right-click Add a Reference under Dependencies on your project
+
 **Example Usage**:
 
 ```
