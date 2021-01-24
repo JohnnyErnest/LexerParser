@@ -1,7 +1,7 @@
 # LexerParser
 
-![Screenshot](https://raw.githubusercontent.com/JohnnyErnest/LexerParser/main/ParserImage.png)
-**Figure 1**) An example use case of LexerParser, some HTML syntax being processed via EBNF rules to syntax highlight a user entered HTML source code document.
+![Screenshot](https://raw.githubusercontent.com/JohnnyErnest/LexerParser/main/LexerParser2.png)
+**Figure 1**) An example use case of LexerParser, some examples of HTML, CSS, and SQL syntax being processed via EBNF rules to syntax highlight a user entered texts, and also a mathematical equation being expressed as a syntax node tree and evaluated.
 
 LexerParser is a C# Lexical Analyzer and Parser for text that uses a JSON configuration as well as partial Extended Backus-Naur Form support (https://en.wikipedia.org/wiki/Extended_Backus%E2%80%93Naur_form) for parsing Context-Free Grammars expressed in EBNF. You can then enter text strings to be parsed by the resulting Parser and retrieve an AST node tree of ParserResults. You can also take parsed results and use them in evaluations, for example, the included expression calculator example parses an input expression and evaluates the end result, giving you the mathematical answer of the input calculation. 
 
@@ -55,50 +55,3 @@ When adding EBNF rules, there is normally a lookup to see if the Lexer Rule or P
 - Unit Testing
 - Nuget Packaging
 - Variable name capture support in EBNF, this is currently available in JSON with "varName" on sections you want to name.
-
-**Output of Example Usage**:
-
-```
-Adding EBNF rule:htmlAttribute
-Adding EBNF rule:htmlOpenTag
-Adding EBNF rule:htmlCloseTag
-Adding EBNF rule:htmlInnerTagText
-Adding EBNF rule:htmlTag
-Node:htmlTag, Start:0, InnerText:<html><head><title>Title</title></head><body><h2>Helloooo hi</h2><div>Here is <span>some</span> text</div></body></html>
- Node:htmlTag:::rule_main_block:0:0, Start:0, InnerText:<html><head><title>Title</title></head><body><h2>Helloooo hi</h2><div>Here is <span>some</span> text</div></body></html>
-  Node:htmlOpenTag, Start:0, InnerText:<html>
-   Node:htmlOpenTag:::rule_main_block:0:0, Start:0, InnerText:<html>
-     Token: strhtmlOpenTag:::ebnfTerminal:11:2, Start:0, Text:<
-    Node:identifier, Start:1, InnerText:html
-      Token: letter, Start:1, Text:h
-      Token: letter, Start:2, Text:t
-      Token: letter, Start:3, Text:m
-      Token: letter, Start:4, Text:l
-     Token: strhtmlOpenTag:::ebnfTerminal:13:0, Start:5, Text:>
-  Node:htmlTag:::rhsBlockBrace:11:1, Start:6, InnerText:<head><title>Title</title></head>
-   Node:htmlTag, Start:6, InnerText:<head><title>Title</title></head>
-    Node:htmlTag:::rule_main_block:0:0, Start:6, InnerText:<head><title>Title</title></head>
-     Node:htmlOpenTag, Start:6, InnerText:<head>
-      Node:htmlOpenTag:::rule_main_block:0:0, Start:6, InnerText:<head>
-        Token: strhtmlOpenTag:::ebnfTerminal:11:2, Start:6, Text:<
-       Node:identifier, Start:7, InnerText:head
-         Token: letter, Start:7, Text:h
-         Token: letter, Start:8, Text:e
-         Token: letter, Start:9, Text:a
-         Token: letter, Start:10, Text:d
-        Token: strhtmlOpenTag:::ebnfTerminal:13:0, Start:11, Text:>
-     Node:htmlTag:::rhsBlockBrace:11:1, Start:12, InnerText:<title>Title</title>
-      Node:htmlTag, Start:12, InnerText:<title>Title</title>
-       Node:htmlTag:::rule_main_block:0:0, Start:12, InnerText:<title>Title</title>
-        Node:htmlOpenTag, Start:12, InnerText:<title>
-         Node:htmlOpenTag:::rule_main_block:0:0, Start:12, InnerText:<title>
-           Token: strhtmlOpenTag:::ebnfTerminal:11:2, Start:12, Text:<
-          Node:identifier, Start:13, InnerText:title
-            Token: letter, Start:13, Text:t
-            Token: letter, Start:14, Text:i
-            Token: letter, Start:15, Text:t
-            Token: letter, Start:16, Text:l
-            Token: letter, Start:17, Text:e
-           Token: strhtmlOpenTag:::ebnfTerminal:13:0, Start:18, Text:>
-           ... and so on ...
-```
