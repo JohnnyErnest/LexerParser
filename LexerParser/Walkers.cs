@@ -63,12 +63,81 @@ namespace LexerParser
             }
         }
     }
-    public class ConsoleWalker : ParserResultWalker
+    public class SqlConsoleWalker : ParserResultWalker
     {
         public List<(string, string)> Nodes = new List<(string, string)>();
-        public ConsoleWalker(Parser.ParserResult parserResult) : base(parserResult, showOnConsoleDefault: false)
+        public SqlConsoleWalker(Parser.ParserResult parserResult, bool visitOnInit = true) : base(parserResult, showOnConsoleDefault: false)
         {
-            Visit();
+            if (visitOnInit)
+            {
+                Visit();
+            }
+        }
+        public override void Visit()
+        {
+            base.Visit();
+        }
+        void SetColor(Parser.ParserResult node, bool backwards = false)
+        {
+            if (node.Name == "sqlIdentifier")
+            {
+                Console.ForegroundColor = ConsoleColor.Yellow;
+            }
+            if (node.Name == "comma")
+            {
+                Console.ForegroundColor = ConsoleColor.DarkYellow;
+            }
+            if (node.InnerResultsText.Contains("as"))
+            {
+                Console.ForegroundColor = ConsoleColor.DarkYellow;
+            }
+            if (node.InnerResultsText.Contains("select"))
+            {
+                Console.ForegroundColor = ConsoleColor.Blue;
+            }
+            if (node.InnerResultsText.Contains("from"))
+            {
+                Console.ForegroundColor = ConsoleColor.DarkBlue;
+            }
+        }
+        public override void VisitSequenceNode(Parser.ParserResult node, int level = 0)
+        {
+            Nodes.Add((node.Name, "before"));
+            SetColor(node);
+            base.VisitSequenceNode(node, level);
+            SetColor(node, true);
+            Nodes.Add((node.Name, "after"));
+        }
+        public override void VisitToken(Lexer.Span span, int level = 0)
+        {
+            Nodes.Add(("token", span.Text));
+            if (span.Text == "=")
+            {
+                Console.ForegroundColor = ConsoleColor.DarkBlue;
+                Console.Write(span.Text);
+            }
+            else if (span.Text == "\"")
+            {
+                Console.ForegroundColor = ConsoleColor.DarkYellow;
+                Console.Write(span.Text);
+                Console.ForegroundColor = ConsoleColor.Yellow;
+            }
+            else
+            {
+                Console.Write(span.Text);
+            }
+            base.VisitToken(span, level);
+        }
+    }
+
+    public class HtmlConsoleWalker : ParserResultWalker
+    {
+        public List<(string, string)> Nodes = new List<(string, string)>();
+        public HtmlConsoleWalker(Parser.ParserResult parserResult, bool visitOnInit = true) : base(parserResult, showOnConsoleDefault: false)
+        {
+            if (visitOnInit) {
+                Visit();
+            }
         }
         public override void Visit()
         {
@@ -134,6 +203,227 @@ namespace LexerParser
                 Console.Write(span.Text);
             }
             base.VisitToken(span, level);
+        }
+    }
+    public class CssConsoleWalker : ParserResultWalker
+    {
+        public List<(string, string)> Nodes = new List<(string, string)>();
+        public CssConsoleWalker(Parser.ParserResult parserResult, bool visitOnInit = true) : base(parserResult, showOnConsoleDefault: false)
+        {
+            if (visitOnInit) {
+                Visit();
+            }
+        }
+        public override void Visit()
+        {
+            base.Visit();
+        }
+        void SetColor(Parser.ParserResult node, bool backwards = false)
+        {
+            if (new string[] { "cssCodeBlock" }.Contains(node.Name))
+            {
+                Console.ForegroundColor = ConsoleColor.DarkGray;
+            }
+            else if (node.Name == "semicolon" || node.Name == "colon")
+            {
+                if (backwards)
+                {
+                    Console.ForegroundColor = ConsoleColor.DarkGray;
+                }
+                else
+                {
+                    Console.ForegroundColor = ConsoleColor.DarkBlue;
+                }
+            }
+            else if (node.Name == "cssPropertyName")
+            {
+                if (backwards)
+                {
+                    Console.ForegroundColor = ConsoleColor.DarkGray;
+                }
+                else
+                {
+                    Console.ForegroundColor = ConsoleColor.Blue;
+                }
+            }
+            else if (node.Name == "cssSelectorName")
+            {
+                if (backwards)
+                {
+                    Console.ForegroundColor = ConsoleColor.DarkGray;
+                }
+                else
+                {
+                    Console.ForegroundColor = ConsoleColor.Cyan;
+                }
+            }
+            else if (node.Name == "cssStringDblQuote" || node.Name == "cssStringQuote")
+            {
+                if (backwards)
+                {
+                    Console.ForegroundColor = ConsoleColor.DarkGray;
+                }
+                else
+                {
+                    Console.ForegroundColor = ConsoleColor.DarkYellow;
+                }
+            }
+            else if (node.Name == "cssString")
+            {
+                if (backwards)
+                {
+                    Console.ForegroundColor = ConsoleColor.DarkYellow;
+                }
+                else
+                {
+                    Console.ForegroundColor = ConsoleColor.Yellow;
+                }
+            }
+            else if (node.Name == "cssColorIdentifier")
+            {
+                if (backwards)
+                {
+                    Console.ForegroundColor = ConsoleColor.DarkGray;
+                }
+                else
+                {
+                    Console.ForegroundColor = ConsoleColor.Yellow;
+                }
+            }
+            else if (node.Name == "cssValueLiteral")
+            {
+                if (backwards)
+                {
+                    Console.ForegroundColor = ConsoleColor.DarkGray;
+                }
+                else
+                {
+                    Console.ForegroundColor = ConsoleColor.Yellow;
+                }
+            }
+        }
+        public override void VisitSequenceNode(Parser.ParserResult node, int level = 0)
+        {
+            Nodes.Add((node.Name, "before"));
+            SetColor(node);
+            base.VisitSequenceNode(node, level);
+            SetColor(node, true);
+            Nodes.Add((node.Name, "after"));
+        }
+        public override void VisitToken(Lexer.Span span, int level = 0)
+        {
+            Nodes.Add(("token", span.Text));
+            if (span.Text == "=")
+            {
+                Console.ForegroundColor = ConsoleColor.DarkBlue;
+                Console.Write(span.Text);
+            }
+            else if (span.Text == "\"")
+            {
+                Console.ForegroundColor = ConsoleColor.DarkYellow;
+                Console.Write(span.Text);
+                Console.ForegroundColor = ConsoleColor.Yellow;
+            }
+            else
+            {
+                Console.Write(span.Text);
+            }
+            base.VisitToken(span, level);
+        }
+    }
+    public class CalculatorConsoleWalker : ParserResultWalker
+    {
+        public List<(string, string)> Nodes = new List<(string, string)>();
+        public CalculatorConsoleWalker(Parser.ParserResult parserResult, bool visitOnInit = true) : base(parserResult, showOnConsoleDefault: false)
+        {
+            if (visitOnInit)
+            {
+                Visit();
+                Console.ForegroundColor = ConsoleColor.Gray;
+            }
+        }
+        public override void Visit()
+        {
+            base.Visit();
+        }
+        void SetColor(Parser.ParserResult node, bool backwards = false)
+        {
+            if (new string[] { "parenthesisOpen", "parenthesisClose" }.Contains(node.Name))
+            {
+                Console.ForegroundColor = ConsoleColor.DarkGray;
+            }
+            else if (node.Name == "mathNum")
+            {
+                if (backwards)
+                {
+                    Console.ForegroundColor = ConsoleColor.DarkBlue;
+                }
+                else
+                {
+                    Console.ForegroundColor = ConsoleColor.Blue;
+                }
+            }
+            else if (new[] { "mathMultiply", "mathDivide", "mathAdd", "mathSubtract" }.Contains(node.Name))
+            {
+                Console.ForegroundColor = ConsoleColor.DarkBlue;
+            }
+        }
+        public override void VisitSequenceNode(Parser.ParserResult node, int level = 0)
+        {
+            Nodes.Add((node.Name, "before"));
+            SetColor(node);
+            base.VisitSequenceNode(node, level);
+            SetColor(node, true);
+            Nodes.Add((node.Name, "after"));
+        }
+        public override void VisitToken(Lexer.Span span, int level = 0)
+        {
+            Nodes.Add(("token", span.Text));
+            if (span.Text == "=")
+            {
+                Console.ForegroundColor = ConsoleColor.DarkBlue;
+                Console.Write(span.Text);
+            }
+            else if (span.Text == "\"")
+            {
+                Console.ForegroundColor = ConsoleColor.DarkYellow;
+                Console.Write(span.Text);
+                Console.ForegroundColor = ConsoleColor.Yellow;
+            }
+            else
+            {
+                Console.Write(span.Text);
+            }
+            base.VisitToken(span, level);
+        }
+    }
+    public class EvaluationResultConsoleWalker
+    {
+        public List<(string, string)> Nodes = new List<(string, string)>();
+        public EvaluationResultConsoleWalker(Parser.EvaluationResult parserResult, bool visitOnInit = true)
+        {
+            if (visitOnInit)
+            {
+                VisitEvaluationNode(parserResult, 0);
+                Console.ForegroundColor = ConsoleColor.Gray;
+            }
+        }
+        void SetColor(ConsoleColor consoleColor, string text)
+        {
+            Console.ForegroundColor = consoleColor;
+            Console.Write(text);
+        }
+        public void VisitEvaluationNode(Parser.EvaluationResult node, int level = 0)
+        {
+            SetColor(ConsoleColor.DarkGray, "[");
+            SetColor(ConsoleColor.Blue, "Eval Result");
+            SetColor(ConsoleColor.DarkBlue, ": ");
+            SetColor(ConsoleColor.Yellow, node.EvaluationType.Name);
+            SetColor(ConsoleColor.DarkYellow, "/");
+            SetColor(ConsoleColor.Yellow, node.EvaluationText);
+            SetColor(ConsoleColor.DarkGray, "]");
+            SetColor(ConsoleColor.Gray, "");
+            Console.WriteLine();
         }
     }
 }

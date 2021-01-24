@@ -1113,6 +1113,116 @@ namespace LexerParser
             }
             return (found, currentSequence, items);
         }
+        public (bool, ParserSequence, List<ParserResult>) CheckSearch(Lexer.LexerResult input, Lexer lexer, string sequenceName = "", bool showOnConsole = false)
+        {
+            int index = 0;
+            int endIndex = input.OrganizedSpans.OrderByDescending(x => x.End).FirstOrDefault().End;
+            bool found = false;
+            ParserSequence currentSequence = null;
+            List<ParserResult> items = new List<ParserResult>();
+            int level = 0;
+            List<ParserSequence> seq = new List<ParserSequence>();
+            if (sequenceName != "")
+            {
+                seq = Sequences.Where(x => x.SequenceName == sequenceName).ToList();
+            }
+            else
+            {
+                seq = Sequences.ToList();
+            }
+            bool foundOnce = false;
+            bool done = false;
+            while(!done)
+            {
+                if (seq.Count == 0) { return (false, null, new List<ParserResult>()); }
+                foreach (var sequence in seq)
+                {
+                    if (showOnConsole)
+                    {
+                        Console.WriteLine();
+                        Console.WriteLine($"Sequence:{sequence.SequenceName}");
+                        Console.WriteLine("++++++++++++++++++++++++++++++++++++++++++++");
+                    }
+
+                    //Log.AppendLine();
+                    //Log.AppendLine($"Sequence:{sequence.SequenceName}");
+                    //Log.AppendLine("++++++++++++++++++++++++++++++++++++++++++++");
+
+                    currentSequence = sequence;
+
+                    //ParsedSequenceLog.Add((level, "Before", sequence.SequenceName));
+                    //ParsedLog.Add((level, "Before", sequence.SequenceName, ""));
+
+                    if (CancelAllParsing)
+                    {
+                        return (false, null, null);
+                    }
+
+                    var root = new ParserSequenceAndSection() { Sequence = sequence, Section = null };
+                    var parent = new ParserSequenceAndSection() { Sequence = sequence, Section = null };
+                    string groupName = sequence.SequenceName;
+                    if (groupName.Contains(":::"))
+                    {
+                        int strIndex = groupName.IndexOf(":::");
+                        groupName = groupName.Substring(0, strIndex);
+                    }
+                    var parserResult = new ParserResult()
+                    {
+                        Name = sequence.SequenceName,
+                        GroupName = groupName,
+                        Level = level,
+                        Parent = parent,
+                        Root = root
+                    };
+                    root.Node = parserResult;
+                    parent.Node = parserResult;
+
+                    var result = CheckSequence(input, lexer, sequence, index, level + 1, parent, root, showOnConsole);
+
+                    //ParsedSequenceLog.Add((level, "After", sequence.SequenceName));
+                    //ParsedLog.Add((level, "After", sequence.SequenceName, ""));
+
+                    if (CancelAllParsing)
+                    {
+                        return (false, null, null);
+                    }
+
+                    if (result.Item1 != -1)
+                    {
+                        index = result.Item1;
+                    }
+
+                    found = result.Item2;
+                    if (found) { foundOnce = true; }
+                    if (found)
+                    {
+                        parserResult.InnerResults = result.Item3;
+                        //root.Node = parserResult;
+                        //parent.Node = parserResult;
+                        items.Add(parserResult);
+                        //return (found, currentSequence, items);
+                        index++;
+                        if (index >= input.OrganizedSpans.Max(x => x.End))
+                        {
+                            done = true;
+                            return (found, currentSequence, items);
+                        }
+                    }
+                    else if (found == false)
+                    {
+                        index++;
+                        if (index >= input.OrganizedSpans.Max(x => x.End))
+                        {
+                            done = true;
+                            if (items.Count > 0) { found = true; }
+                            return (found, currentSequence, items);
+                        }
+                    }
+                }
+            }
+            if (items.Count > 0) { found = true; }
+            return (found, currentSequence, items);
+        }
         public List<ParserResult> OrganizeParentNodes(List<ParserResult> nodes, int level = 0, ParserResult parent = null)
         {
             foreach (var node in nodes)
@@ -1163,6 +1273,30 @@ namespace LexerParser
             else
             {
                 result = this.Check(lexerResult, InputLexer);
+            }
+            var items = OrganizeParentNodes(result.Item3);
+            return new Result() { Matched = result.Item1, LexerResult = lexerResult, Sequence = result.Item2, Results = items };
+        }
+        public Result Search(string input, Lexer lexer = null, string sequenceName = "", bool showOnConsole = false)
+        {
+            InitParserLog();
+            Lexer.LexerResult lexerResult = InputLexer.GetSpans(input);
+            (bool, ParserSequence, List<ParserResult>) result = (false, null, new List<ParserResult>());
+            if (lexer != null && sequenceName != null)
+            {
+                result = this.CheckSearch(lexerResult, lexer, sequenceName, showOnConsole);
+            }
+            else if (lexer != null)
+            {
+                result = this.CheckSearch(lexerResult, lexer, showOnConsole: showOnConsole);
+            }
+            else if (sequenceName != null)
+            {
+                result = this.CheckSearch(lexerResult, InputLexer, sequenceName, showOnConsole);
+            }
+            else
+            {
+                result = this.CheckSearch(lexerResult, InputLexer);
             }
             var items = OrganizeParentNodes(result.Item3);
             return new Result() { Matched = result.Item1, LexerResult = lexerResult, Sequence = result.Item2, Results = items };
@@ -1698,6 +1832,30 @@ namespace LexerParser
                 for(int i=0;i<textStrings.Count;i++)
                 {
                     AddEBNFRuleSections(identifierText, textStrings[i].identifier, textStrings[i].text, "");
+                }
+            }
+        }
+        public void AddEBNFGrammar(string input)
+        {
+            var grammar = Parse(input, sequenceName: "grammar");
+            if (grammar.Matched)
+            {
+                foreach (var rule in grammar.Results[0].InnerResults)
+                {
+                    string ruleText = rule.InnerResultsText.Trim();
+                    AddEBNFRule(ruleText);
+                }
+            }
+        }
+        public void AddEBNFGrammar(string[] input)
+        {
+            foreach(var item in input)
+            {
+                var rule = Parse(item, sequenceName: "rule");
+                if (rule.Matched)
+                {
+                    string ruleText = rule.Results[0].InnerResultsText.Trim();
+                    AddEBNFRule(ruleText);
                 }
             }
         }

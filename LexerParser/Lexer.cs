@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading.Tasks;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
@@ -397,6 +398,7 @@ namespace LexerParser
         public LexerResult GetSpans(string input)
         {
             var spans = ProcessText(input, removeInnerDupes:true);
+            //var spans = ProcessTextCharArray(input, removeInnerDupes: true);
             var result = new LexerResult()
             {
                 RawSpans = spans.Item1,
@@ -427,7 +429,7 @@ namespace LexerParser
                 }
                 len1++;
             }
-            allInts = allInts.GroupBy(x => new { x.start, x.len }).Select(x => (x.Key.start, x.Key.len)).ToList();
+            //allInts = allInts.GroupBy(x => new { x.start, x.len }).Select(x => (x.Key.start, x.Key.len)).ToList();
             //foreach (var item in allInts)
             //{
             //    string substr = input.Substring(item.start, item.len);
@@ -438,13 +440,133 @@ namespace LexerParser
             //}
 
             var allChars = allInts.Where(x => x.len == 1).ToArray();
-            allInts = allInts.Where(x => x.len > 1).ToList();
-            foreach (var item in allInts)
+            //allInts = allInts.Where(x => x.len > 1).ToList();
+            var allIntsArray = allInts.Where(x => x.len > 1).ToArray();
+            //foreach (var item in allInts)
+            //var sub1 = Parallel.ForEach(allIntsArray, (item) =>
+            //{
+            //    string substr = input.Substring(item.start, item.len);
+            //    var procRules = ProcessRules(substr).ToArray();
+            //    foreach (var p in procRules)
+            //    {
+            //        spans.Add(new Span() { Rule = p, Start = item.start, Text = substr });
+            //    }
+            //});
+            //while(!sub1.IsCompleted)
+            //{
+            //    Task.Delay(10);
+            //}
+            foreach (var item in allIntsArray)
             {
                 string substr = input.Substring(item.start, item.len);
-                foreach (var p in ProcessRules(substr))
+                var procRules = ProcessRules(substr).ToArray();
+                foreach (var p in procRules)
                 {
                     spans.Add(new Span() { Rule = p, Start = item.start, Text = substr });
+                }
+            }
+            foreach (var item in allChars)
+            {
+                char c = input[item.start];
+                foreach (var p in ProcessRules(c))
+                {
+                    spans.Add(new Span() { Rule = p, Start = item.start, Text = c.ToString() });
+                }
+            }
+            //var sub2 = Parallel.ForEach(allChars, (item) =>
+            //{
+            //    char c = input[item.start];
+            //    foreach (var p in ProcessRules(c))
+            //    {
+            //        spans.Add(new Span() { Rule = p, Start = item.start, Text = c.ToString() });
+            //    }
+            //});
+            //while (!sub2.IsCompleted)
+            //{
+            //    Task.Delay(10);
+            //}
+
+            //spans = spans2.ToList();
+            //spans2 = spans2.OrderByDescending(x => x.Length).OrderBy(x => x.Start).ThenByDescending(x => x.Rule.Ordinal).ToList();
+            spans = spans.OrderByDescending(x => x.Length).OrderBy(x => x.Start).ThenByDescending(x => x.Rule.Ordinal).ToList();
+
+            List<Span> res1 = new List<Span>();
+            if (removeInnerDupes)
+            {
+                int repeat_idx = 0;
+                var repeat_list = spans.Where(x => x.Rule.RuleType == "RepeatRule").Select(x => new { idx = repeat_idx++, start = x.Start, end = x.End, len = x.Length, x }).ToList();
+                bool done_repeats = false;
+                repeat_idx = 0;
+                while (!done_repeats)
+                {
+                    if (repeat_idx >= repeat_list.Count) { done_repeats = true; }
+                    else
+                    {
+                        var current = repeat_list[repeat_idx];
+                        repeat_list.RemoveAll(x => x != current && 
+                            x.start >= current.start && 
+                            x.end <= current.end && 
+                            current.x.Rule.RuleName == x.x.Rule.RuleName);
+                        repeat_idx++;
+                    }
+                }
+                res1.AddRange(repeat_list.Select(x => x.x).ToArray());
+                res1.AddRange(spans.Where(x => x.Rule.RuleType != "RepeatRule").ToArray());
+                res1 = res1.OrderBy(x => x.Start).ThenByDescending(x => x.Rule.Ordinal).ToList();
+                //var res2 = res1.ToArray();
+                //res1 = new List<Span>();
+                //foreach(var a in res2)
+                //{
+                //    res1.Add(new Span() { Start = a.Start, Rule = a.Rule, Text = a.Text, InnerSpans = a.InnerSpans });
+                //}
+            }
+            List<Span> singularSpans = spans.Where(x => x.Length == 1).OrderBy(x => x.Start).ThenByDescending(x => x.Rule.Ordinal).ToList();
+            return (spans, singularSpans, res1);
+        }
+        public (List<Span>, List<Span>, List<Span>) ProcessTextCharArray(string input, bool removeInnerDupes = false)
+        {
+            List<Span> spans = new List<Span>();
+            List<Span> spans2 = new List<Span>();
+            char[] inputChars = input.ToCharArray();
+            int len1 = 1;
+            int inLen = input.Length;
+            List<(int start, int len)> allInts = new List<(int, int)>();
+            for (int i1 = 0; i1 < inLen; i1++)
+            {
+                for (int i2 = 0; i2 < inLen; i2++)
+                {
+                    if ((i2 + len1) > inLen)
+                    {
+                        break;
+                    }
+                    allInts.Add((i2, len1));
+                }
+                len1++;
+            }
+            //allInts = allInts.GroupBy(x => new { x.start, x.len }).Select(x => (x.Key.start, x.Key.len)).ToList();
+            //foreach (var item in allInts)
+            //{
+            //    string substr = input.Substring(item.start, item.len);
+            //    foreach (var p in ProcessRules(substr))
+            //    {
+            //        spans.Add(new Span() { Rule = p, Start = item.start, Text = substr });
+            //    }
+            //}
+
+            var allChars = allInts.Where(x => x.len == 1).ToArray();
+            //allInts = allInts.Where(x => x.len > 1).ToList();
+            var allIntsArray = allInts.Where(x => x.len > 1).ToArray();
+            //foreach (var item in allInts)
+            foreach (var item in allIntsArray)
+            {
+                //string substr = input.Substring(item.start, item.len);
+                char[] chars = new char[item.len];
+                Array.Copy(inputChars, item.start, chars, 0, item.len);
+                string newStr = new string(chars);
+                var procRules = ProcessRules(newStr).ToArray();
+                foreach (var p in procRules)
+                {
+                    spans.Add(new Span() { Rule = p, Start = item.start, Text = newStr });
                 }
             }
             foreach (var item in allChars)
@@ -473,9 +595,9 @@ namespace LexerParser
                     else
                     {
                         var current = repeat_list[repeat_idx];
-                        repeat_list.RemoveAll(x => x != current && 
-                            x.start >= current.start && 
-                            x.end <= current.end && 
+                        repeat_list.RemoveAll(x => x != current &&
+                            x.start >= current.start &&
+                            x.end <= current.end &&
                             current.x.Rule.RuleName == x.x.Rule.RuleName);
                         repeat_idx++;
                     }
