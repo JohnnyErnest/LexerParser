@@ -17,7 +17,8 @@ Rather than building a static code file beforehand from a static set of rules fr
 - Enjoy
 - Grab a Soda
 - Then start your own new project in Visual Studio
-- and add a reference to LexerWalker via right-click Add a Reference under Dependencies on your project
+- Then add a reference to LexerParser via right-click on the Dependencies part of your project and click Add a Reference
+- See Example Usage below on how to use it, and take a look at the example console project in the LexerParser Solution
 
 **Example Usage**:
 
