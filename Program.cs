@@ -19,7 +19,7 @@ namespace LexerParser1
             Lexer lexer = new Lexer(defaultConfiguration, userConfiguration);
             Parser parser = new Parser(lexer, userConfiguration);
 
-            string someRule = "searchRule = 'God ', letters;";
+            string someRule = "searchRule = 'God ', letters;"; // <- Add repetition for sequences/tokens
             parser.AddEBNFRule(someRule);
             string bibleText = @"
 1 In the beginning God created the heaven and the earth. 
@@ -38,19 +38,16 @@ The Second Day: Firmament
                 System.Diagnostics.Debug.WriteLine(item.InnerResultsText);
             }
             
-            //string inputJs = "var i = \"Hello\"; var x=5;";
-            //string inputPascal = "PROGRAM BEGIN a:=5; b1:='Hurrooo'; b2:=\"Yay\"; b2 := a; END;";
-
             Console.WriteLine("Adding grammar rules for SQL");
             string sqlGrammar = @"
 sqlIdentifier = [underscore], letters, { letters|hyphen|underscore }, [digits];
-sqlAlias = [whitespaces], 'as', whitespaces, sqlIdentifier, [whitespaces];
+sqlAlias = [whitespaces], ##'as', whitespaces, sqlIdentifier, [whitespaces];
 sqlIdentifierListPart = [whitespaces], comma, [whitespaces], sqlIdentifier, [whitespace, sqlAlias], [whitespaces];
 sqlIdentifierList = [whitespaces], sqlIdentifier, [whitespaces, sqlAlias], [whitespaces], {sqlIdentifierListPart};
-sqlSelect = 'select', sqlIdentifierList, 'from', sqlIdentifierList;
+sqlSelect = ##'select', sqlIdentifierList, ##'from', sqlIdentifierList;
 ";
-            // ^^^ Needs case insensitive string searching for EBNF on sqlAlias and others
             parser.AddEBNFGrammar(sqlGrammar.Split(new string[] { Environment.NewLine }, StringSplitOptions.RemoveEmptyEntries));
+
             Console.WriteLine("Adding grammar rules for HTML");
             string htmlGrammar = @"
                 htmlIdentifier = letter, { letter | digit | hyphen | underscore };
@@ -62,6 +59,7 @@ sqlSelect = 'select', sqlIdentifierList, 'from', sqlIdentifierList;
                 htmlTag = htmlOpenTag, {htmlInnerTagText}, {htmlTag}, {htmlInnerTagText}, htmlCloseTag;
                 ";
             parser.AddEBNFGrammar(htmlGrammar.Split(new string[] { Environment.NewLine }, StringSplitOptions.RemoveEmptyEntries));
+
             Console.WriteLine("Adding grammar rules for CSS");
             string cssGrammar = @"
                 cssSelectorName = letters, { letters | hyphen | digits };
@@ -92,6 +90,11 @@ sqlSelect = 'select', sqlIdentifierList, 'from', sqlIdentifierList;
                 cssStatements = [whitespaces], %% cssStatement, [whitespaces] %%;
                 ";
             parser.AddEBNFGrammar(cssGrammar.Split(new string[] { Environment.NewLine }, StringSplitOptions.RemoveEmptyEntries));
+
+            Console.WriteLine("Adding grammar rules for JS");
+            string jsGrammar = File.ReadAllText("Configuration\\EBNFJavaScript.txt");
+            parser.AddEBNFGrammar(jsGrammar.Split(new string[] { Environment.NewLine }, StringSplitOptions.RemoveEmptyEntries));
+
             Console.WriteLine("Adding grammar rules for Math Equations");
             string mathGrammar = @"
                 mathNegative = hyphen;
@@ -108,7 +111,17 @@ sqlSelect = 'select', sqlIdentifierList, 'from', sqlIdentifierList;
                 mathExpr = mathTerm, { (mathAdd, mathTerm) | (mathSubtract, mathTerm) };";
             parser.AddEBNFGrammar(mathGrammar.Split(new string[] { Environment.NewLine }, StringSplitOptions.RemoveEmptyEntries));
 
-            string inputSql = "select column1, column2 as c2 from _yay";
+            Console.WriteLine("Adding grammar rules for Pascal");
+            string pascalGrammar = @"
+pascalString = ebnfTerminal;
+pascalLiteral = number|pascalString|identifier;
+pascalAssignment = [whitespaces], identifier, [whitespaces], ':=', [whitespaces], pascalLiteral, semicolon;
+pascalRule = pascalAssignment;
+pascalRules = [whitespaces], ##'PROGRAM', whitespaces, ##'BEGIN', whitespaces, { pascalRule }, [whitespaces], ##'END', semicolon, [whitespaces];
+";
+            parser.AddEBNFGrammar(pascalGrammar.Split(new string[] { Environment.NewLine }, StringSplitOptions.RemoveEmptyEntries));
+
+            string inputSql = "Select column1, column2 as c2 from _yay";
             var resultSql = parser.Parse(inputSql, sequenceName: "sqlSelect", showOnConsole: false);
             Console.WriteLine();
             if (resultSql.Matched)
@@ -124,8 +137,6 @@ sqlSelect = 'select', sqlIdentifierList, 'from', sqlIdentifierList;
             var resultHtml = parser.Parse(inputHtml, sequenceName: "htmlTag", showOnConsole: false);
             if (resultHtml.Matched)
             {
-                //ParserResultWalker walker = new ParserResultWalker(result.Results[0], showOnConsoleDefault: true);
-                //walker.Visit();
                 Console.Write("HTML Example: ");
                 HtmlConsoleWalker walker2 = new HtmlConsoleWalker(resultHtml.Results[0]);
                 Console.ForegroundColor = ConsoleColor.Gray;
@@ -385,6 +396,12 @@ sqlSelect = 'select', sqlIdentifierList, 'from', sqlIdentifierList;
                 //walker3.Visit();
             }
             Console.ForegroundColor = ConsoleColor.Gray;
+
+            string inputJs = "var i = \"Hello\"; var x=5;";
+            var resultJs = parser.Search(inputJs, sequenceName: "jsVariable");
+
+            string inputPascal = "PROGRAM BEGIN a:=5; b1:='Hurrooo'; b2:=\"Yay\"; b2 := a; END;";
+            var resultPascal = parser.Parse(inputPascal, sequenceName: "pascalRules");
         }
     }
 }

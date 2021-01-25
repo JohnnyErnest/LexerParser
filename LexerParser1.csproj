@@ -15,6 +15,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Remove="Configuration\EBNFJavaScript.txt" />
     <None Remove="Configuration\EBNFPascal.txt" />
     <None Remove="Configuration\ParserCSS.json" />
     <None Remove="Configuration\ParserEBNF.json" />
@@ -26,6 +27,9 @@
 
   <ItemGroup>
     <Content Include="Configuration\Default.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Configuration\EBNFJavaScript.txt">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <Content Include="Configuration\EBNFPascal.txt">
