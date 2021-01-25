@@ -99,7 +99,7 @@ The Second Day: Firmament
 
 The above searches the KJV Holy Bible in Genesis 1:1-7 for the text: "'God ', letters", allowing variable results to come back. Results would be: "God created, God moved, God said, God saw, God divided, God called, God said, God made"
 
-Keep in mind, when the Lexer runs ProcessText, it will run a cartesian product of all substrings within the input string and try to determine which rules apply to each, and assess where boundaries resides between letters, digits, whitespacing, and so on. So it may be best to break a search text into lines for example, prior to feeding them into the Lexer for optimization, but the functionality is there if you want the Lexer to process large strings.
+Keep in mind, when the Lexer runs ProcessText, it will run a cartesian product of all substrings within the input string and try to determine which rules apply to each, and assess where boundaries reside between letters, digits, whitespacing, and so on. So it may be best to break a search text into lines for example, prior to feeding them into the Lexer for optimization, but the functionality is there if you want the Lexer to process large strings.
 
 **To Do**
 
