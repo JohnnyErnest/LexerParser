@@ -57,9 +57,49 @@ static void Main(string[] args)
     }    
 }
 ```
+
+**Differences from EBNF**
+
 In addition to EBNF operators **{ ... }** for optional repeating blocks, and **[ ... ]** for optional rule blocks that appear zero or one times, you can also use **%% ... %%** to create mandatory repeating blocks that must appear at least once as an extension to Extended BNF. 
 
 When adding EBNF rules, there is normally a lookup to see if the Lexer Rule or Parser Sequence exists, if not, it is added to a list of Unknowns and is unused. You can override this behavior with putting **@** in front of the Lexer Rule or **&** in front of the Parser Sequence if you know ahead of time that the Rule or Sequence will be added later.
+
+Prepending string with **##** does a case-insensitive string search rather than case-sensitive. Example: 
+
+```
+pascalString = ebnfTerminal;
+pascalLiteral = number|pascalString|identifier;
+pascalAssignment = [whitespaces], identifier, [whitespaces], ':=', [whitespaces], pascalLiteral, semicolon;
+pascalRule = pascalAssignment;
+pascalRules = [whitespaces], ##'PROGRAM', whitespaces, ##'BEGIN', whitespaces, { pascalRule }, [whitespaces], ##'END', semicolon, [whitespaces];
+```
+
+The above searches for PROGRAM, BEGIN, and END as case-insensitive strings.
+
+**Search Support**
+
+**Parser.Parse** will return false on a match if the whole string does not match any sequence rule or a sequence rule you specify. **Parser.Search** on the other hand searches for each occurence of a sequence rule in a string. This allows you to use LexerParser to search large texts that are broken into sections, such as the Bible. Example:
+
+```
+    string someRule = "searchRule = 'God ', letters;"; // <- Add repetition for sequences/tokens
+    parser.AddEBNFRule(someRule);
+    string bibleText = @"
+1 In the beginning God created the heaven and the earth. 
+2 And the earth was without form, and void; and darkness was upon the face of the deep. And the Spirit of God moved upon the face of the waters.
+The First Day: Light
+3 And God said, Let there be light: and there was light. 
+4 And God saw the light, that it was good: and God divided the light from the darkness. 
+5 And God called the light Day, and the darkness he called Night. And the evening and the morning were the first day.
+The Second Day: Firmament
+6 And God said, Let there be a firmament in the midst of the waters, and let it divide the waters from the waters. 
+7 And God made the firmament, and divided the waters which were under the firmament from the waters which were above the firmament: and it was so.
+";
+    var search1 = parser.Search(bibleText, lexer, sequenceName: "searchRule");
+```
+
+The above searches the KJV Holy Bible in Genesis 1:1-7 for the text: "'God ', letters", allowing variable results to come back. Results would be: "God created, God moved, God said, God saw, God divided, God called, God said, God made"
+
+Keep in mind, when the Lexer runs ProcessText, it will run a cartesian product of all substrings within the input string and try to determine which rules apply to each, and assess where boundaries resides between letters, digits, whitespacing, and so on. So it may be best to break a search text into lines for example, prior to feeding them into the Lexer for optimization, but the functionality is there if you want the Lexer to process large strings.
 
 **To Do**
 
