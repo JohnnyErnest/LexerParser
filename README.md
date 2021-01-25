@@ -15,7 +15,6 @@ Rather than building a static code file beforehand from a static set of rules fr
 - Download this Solution, unzip it, and load it in VS2019 Community
 - Press F5 to Run while Debugging
 - Enjoy
-- Grab a Soda
 - Then start your own new project in Visual Studio
 - Then add a reference to LexerParser via right-click on the Dependencies part of your project and click Add a Reference
 - See Example Usage below on how to use it, and take a look at the example console project in the LexerParser Solution
