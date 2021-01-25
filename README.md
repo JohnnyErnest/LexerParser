@@ -102,6 +102,5 @@ Keep in mind, when the Lexer runs ProcessText, it will run a cartesian product o
 
 **To Do**
 
-- Unit Testing
 - Nuget Packaging
 - Variable name capture support in EBNF, this is currently available in JSON with "varName" on sections you want to name.
