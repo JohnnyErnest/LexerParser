@@ -97,7 +97,7 @@ namespace LexerParser
             }
             if (node.InnerResultsText.Contains("from"))
             {
-                Console.ForegroundColor = ConsoleColor.DarkBlue;
+                Console.ForegroundColor = ConsoleColor.Blue;
             }
         }
         public override void VisitSequenceNode(Parser.ParserResult node, int level = 0)
@@ -129,7 +129,6 @@ namespace LexerParser
             base.VisitToken(span, level);
         }
     }
-
     public class HtmlConsoleWalker : ParserResultWalker
     {
         public List<(string, string)> Nodes = new List<(string, string)>();
@@ -157,7 +156,7 @@ namespace LexerParser
                 }
                 else
                 {
-                    Console.ForegroundColor = ConsoleColor.DarkCyan;
+                    Console.ForegroundColor = ConsoleColor.Cyan;
                 }
             }
             else if (node.Name == "htmlTagName")
@@ -168,7 +167,7 @@ namespace LexerParser
                 }
                 else
                 {
-                    Console.ForegroundColor = ConsoleColor.Cyan;
+                    Console.ForegroundColor = ConsoleColor.Blue;
                 }
             }
             else if (node.Name == "htmlInnerTagText")
@@ -189,7 +188,7 @@ namespace LexerParser
             Nodes.Add(("token", span.Text));
             if (span.Text == "=")
             {
-                Console.ForegroundColor = ConsoleColor.DarkBlue;
+                Console.ForegroundColor = ConsoleColor.DarkCyan;
                 Console.Write(span.Text);
             }
             else if (span.Text == "\"")
