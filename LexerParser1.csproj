@@ -5,6 +5,10 @@
     <TargetFramework>netcoreapp3.1</TargetFramework>
   </PropertyGroup>
 
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <Optimize>false</Optimize>
+  </PropertyGroup>
+
   <ItemGroup>
     <Compile Remove="LexerParser.Tests\**" />
     <Compile Remove="LexerParser\**" />
@@ -23,6 +27,7 @@
     <None Remove="Configuration\ParserJS.json" />
     <None Remove="Configuration\ParserSQL.json" />
     <None Remove="Sample1.json" />
+    <None Remove="Samples\index.html" />
   </ItemGroup>
 
   <ItemGroup>
@@ -48,6 +53,9 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <Content Include="Configuration\ParserCSS.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Samples\index.html">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
   </ItemGroup>
