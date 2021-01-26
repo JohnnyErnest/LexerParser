@@ -1,0 +1,2 @@
+﻿jsString = doubleQuote, letters, doubleQuote;
+jsVariable = [whitespaces], 'var ', identifier, [whitespaces], '=', [whitespaces], digits|jsString, ';';

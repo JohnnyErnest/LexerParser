@@ -8,7 +8,8 @@
     "strTripleColon": "ci_string::::",
     "strRepeat": "ci_string:/Rep",
     "strOptional": "ci_string:/Opt",
-    "strDoubleBackslash": "string:\\\\"
+    "strDoubleBackslash": "string:\\\\",
+    "strCaseInsensitiveStart": "ci_string:##",
   },
   "parser": {
     "ebnfCharacter": {
@@ -99,70 +100,25 @@
         { "tokenList": "doubleQuote" }
       ]
     },
+    "caseInsensitiveTerminalQuote": {
+      "sequence": [
+        { "tokenList": "strCaseInsensitiveStart" },
+        { "tokenList": "quote" },
+        { "sequenceList": "ebnfCharacters" },
+        { "tokenList": "quote" }
+      ]
+    },
+    "caseInsensitiveTerminalDoubleQuote": {
+      "sequence": [
+        { "tokenList": "strCaseInsensitiveStart" },
+        { "tokenList": "doubleQuote" },
+        { "sequenceList": "ebnfCharacters" },
+        { "tokenList": "doubleQuote" }
+      ]
+    },
     "ebnfTerminal": {
       "sequence": [
-        { "sequenceList": "ebnfTerminalQuote,ebnfTerminalDoubleQuote" }
-      ]
-    },
-    "pascalString": {
-      "sequence": [
-        { "sequenceList": "ebnfTerminal" }
-      ]
-    },
-    "pascalLiteral": {
-      "sequence": [
-        { "sequenceList": "number,pascalString,identifier" }
-      ]
-    },
-    "pascalAssignment": {
-      "sequence": [
-        {
-          "tokenList": "whitespaces",
-          "isOptional": "true"
-        },
-        { "sequenceList": "identifier" },
-        {
-          "tokenList": "whitespaces",
-          "isOptional": "true"
-        },
-        { "tokenList": "strAssignment" },
-        {
-          "tokenList": "whitespaces",
-          "isOptional": "true"
-        },
-        { "sequenceList": "pascalLiteral" },
-        {
-          "tokenList": "whitespaces",
-          "isOptional": "true"
-        },
-        { "tokenList": "semicolon" },
-        {
-          "tokenList": "whitespaces",
-          "isOptional": "true"
-        }
-      ]
-    },
-    "pascalRule1": {
-      "sequence": [
-        {
-          "tokenList": "whitespaces",
-          "isOptional": "true"
-        },
-        { "tokenList": "strProgram" },
-        { "tokenList": "whitespaces" },
-        { "tokenList": "strBegin" },
-        { "tokenList": "whitespaces" },
-        {
-          "sequenceList": "pascalAssignment",
-          "isOptional": "true",
-          "isRepeating": "true"
-        },
-        { "tokenList": "strEnd" },
-        { "tokenList": "semicolon" },
-        {
-          "tokenList": "whitespaces",
-          "isOptional": "true"
-        }
+        { "sequenceList": "ebnfTerminalQuote,ebnfTerminalDoubleQuote,caseInsensitiveTerminalQuote,caseInsensitiveTerminalDoubleQuote" }
       ]
     },
     "lhs": {
