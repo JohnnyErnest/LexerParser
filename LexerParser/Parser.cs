@@ -1253,10 +1253,10 @@ namespace LexerParser
             }
             return nodes;
         }
-        public Result Parse(string input, Lexer lexer = null, string sequenceName = "", bool showOnConsole = false)
+        public Result Parse(string input, Lexer lexer = null, string sequenceName = "", bool showOnConsole = false, int maxSlidingWindow = -1)
         {
             InitParserLog();
-            Lexer.LexerResult lexerResult = InputLexer.GetSpans(input);
+            Lexer.LexerResult lexerResult = InputLexer.GetSpans(input, maxSlidingWindow: maxSlidingWindow);
             (bool, ParserSequence, List<ParserResult>) result = (false, null, new List<ParserResult>());
             if (lexer != null && sequenceName != null)
             {
@@ -1277,10 +1277,10 @@ namespace LexerParser
             var items = OrganizeParentNodes(result.Item3);
             return new Result() { Matched = result.Item1, LexerResult = lexerResult, Sequence = result.Item2, Results = items };
         }
-        public Result Search(string input, Lexer lexer = null, string sequenceName = "", bool showOnConsole = false)
+        public Result Search(string input, Lexer lexer = null, string sequenceName = "", bool showOnConsole = false, int maxSlidingWindow = -1)
         {
             InitParserLog();
-            Lexer.LexerResult lexerResult = InputLexer.GetSpans(input);
+            Lexer.LexerResult lexerResult = InputLexer.GetSpans(input, maxSlidingWindow: maxSlidingWindow);
             (bool, ParserSequence, List<ParserResult>) result = (false, null, new List<ParserResult>());
             if (lexer != null && sequenceName != null)
             {
@@ -1290,7 +1290,7 @@ namespace LexerParser
             {
                 result = this.CheckSearch(lexerResult, lexer, showOnConsole: showOnConsole);
             }
-            else if (sequenceName != null)
+            else if (!string.IsNullOrEmpty(sequenceName))
             {
                 result = this.CheckSearch(lexerResult, InputLexer, sequenceName, showOnConsole);
             }
@@ -1300,6 +1300,47 @@ namespace LexerParser
             }
             var items = OrganizeParentNodes(result.Item3);
             return new Result() { Matched = result.Item1, LexerResult = lexerResult, Sequence = result.Item2, Results = items };
+        }
+        public List<Result> Search(string[] inputs, Lexer lexer = null, string sequenceName = "", bool showOnConsole = false, int maxSlidingWindow = -1)
+        {
+            InitParserLog();
+            bool foundAny = false;
+            //(bool, ParserSequence, List<ParserResult>) result1 = (false, null, new List<ParserResult>());
+            List<ParserResult> results = new List<ParserResult>();
+            List<Result> results1 = new List<Result>();
+
+            foreach (var line in inputs)
+            {
+                Lexer.LexerResult lexerResult = InputLexer.GetSpans(line, maxSlidingWindow: maxSlidingWindow);
+                (bool, ParserSequence, List<ParserResult>) result = (false, null, new List<ParserResult>());
+                if (lexer != null && sequenceName != null)
+                {
+                    result = this.CheckSearch(lexerResult, lexer, sequenceName, showOnConsole);
+                }
+                else if (lexer != null)
+                {
+                    result = this.CheckSearch(lexerResult, lexer, showOnConsole: showOnConsole);
+                }
+                else if (!string.IsNullOrEmpty(sequenceName))
+                {
+                    result = this.CheckSearch(lexerResult, InputLexer, sequenceName, showOnConsole);
+                }
+                else
+                {
+                    result = this.CheckSearch(lexerResult, InputLexer);
+                }
+                var items = OrganizeParentNodes(result.Item3);
+                if (result.Item1)
+                {
+                    results1.Add(new Result() { Matched = result.Item1, LexerResult = lexerResult, Sequence = result.Item2, Results = items });
+                }
+                //return new Result() { Matched = result.Item1, LexerResult = lexerResult, Sequence = result.Item2, Results = items };
+            }
+            if (results1.Count == 0)
+            {
+                results1.Add(new Result() { Matched = false });
+            }
+            return results1;
         }
         void AddEBNFRuleSectionsMainBlock(string identifier, string input)
         {
