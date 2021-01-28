@@ -81,15 +81,15 @@ namespace LexerParser
         {
             if (node.Name == "sqlIdentifier")
             {
-                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.ForegroundColor = ConsoleColor.Magenta;
             }
             if (node.Name == "comma")
             {
-                Console.ForegroundColor = ConsoleColor.DarkYellow;
+                Console.ForegroundColor = ConsoleColor.DarkMagenta;
             }
             if (node.InnerResultsText.Contains("as"))
             {
-                Console.ForegroundColor = ConsoleColor.DarkYellow;
+                Console.ForegroundColor = ConsoleColor.DarkMagenta;
             }
             if (node.InnerResultsText.Contains("select"))
             {
@@ -144,9 +144,42 @@ namespace LexerParser
         }
         void SetColor(Parser.ParserResult node, bool backwards = false)
         {
-            if (new string[] { "htmlOpenTag", "htmlCloseTag" }.Contains(node.Name))
+            if (new string[] { "htmlOpenTag", "htmlCloseTag", "htmlOpenAndCloseTag" }.Contains(node.Name))
             {
                 Console.ForegroundColor = ConsoleColor.DarkGray;
+            }
+            else if (node.Name == "doubleQuote")
+            {
+                if (backwards)
+                {
+                    Console.ForegroundColor = ConsoleColor.White;
+                }
+                else
+                {
+                    Console.ForegroundColor = ConsoleColor.DarkRed;
+                }
+            }
+            else if (node.Name == "ebnfCharacter")
+            {
+                if (backwards)
+                {
+                    Console.ForegroundColor = ConsoleColor.DarkRed;
+                }
+                else
+                {
+                    Console.ForegroundColor = ConsoleColor.Red;
+                }
+            }
+            else if (node.Name == "htmlComment")
+            {
+                if (backwards)
+                {
+                    Console.ForegroundColor = ConsoleColor.DarkGray;
+                }
+                else
+                {
+                    Console.ForegroundColor = ConsoleColor.DarkGreen;
+                }
             }
             else if (node.Name == "htmlAttribute")
             {
@@ -172,7 +205,14 @@ namespace LexerParser
             }
             else if (node.Name == "htmlInnerTagText")
             {
-                Console.ForegroundColor = ConsoleColor.White;
+                if (backwards)
+                {
+                    Console.ForegroundColor = ConsoleColor.Gray;
+                }
+                else
+                {
+                    Console.ForegroundColor = ConsoleColor.White;
+                }
             }
         }
         public override void VisitSequenceNode(Parser.ParserResult node, int level = 0)
@@ -186,21 +226,21 @@ namespace LexerParser
         public override void VisitToken(Lexer.Span span, int level = 0)
         {
             Nodes.Add(("token", span.Text));
-            if (span.Text == "=")
-            {
-                Console.ForegroundColor = ConsoleColor.DarkCyan;
+            //if (span.Text == "=")
+            //{
+            //    Console.ForegroundColor = ConsoleColor.DarkCyan;
+            //    Console.Write(span.Text);
+            //}
+            //else if (span.Text == "\"")
+            //{
+            //    Console.ForegroundColor = ConsoleColor.DarkRed;
+            //    Console.Write(span.Text);
+            //    Console.ForegroundColor = ConsoleColor.Red;
+            //}
+            //else
+            //{
                 Console.Write(span.Text);
-            }
-            else if (span.Text == "\"")
-            {
-                Console.ForegroundColor = ConsoleColor.DarkYellow;
-                Console.Write(span.Text);
-                Console.ForegroundColor = ConsoleColor.Yellow;
-            }
-            else
-            {
-                Console.Write(span.Text);
-            }
+            //}
             base.VisitToken(span, level);
         }
     }
@@ -417,15 +457,14 @@ namespace LexerParser
             SetColor(ConsoleColor.DarkGray, "[");
             SetColor(ConsoleColor.Blue, "Eval Result");
             SetColor(ConsoleColor.DarkBlue, ": ");
-            SetColor(ConsoleColor.Yellow, node.EvaluationType.Name);
-            SetColor(ConsoleColor.DarkYellow, "/");
-            SetColor(ConsoleColor.Yellow, node.EvaluationText);
+            SetColor(ConsoleColor.Green, node.EvaluationType.Name);
+            SetColor(ConsoleColor.DarkGreen, "/");
+            SetColor(ConsoleColor.Green, node.EvaluationText);
             SetColor(ConsoleColor.DarkGray, "]");
             SetColor(ConsoleColor.Gray, "");
             Console.WriteLine();
         }
     }
-
     public class LexerResultWalker
     {
         List<(int Line, int Index, Lexer.Span Data)> Data { get; set; }
@@ -454,7 +493,7 @@ namespace LexerParser
         });
         public LexerResultWalker(List<Lexer.Span> data)
         {
-            int line = 0;
+            //int line = 0;
             foreach (var span in data)
             {
                 //if (span.Line != line) { Console.WriteLine(); line = span.Line; }

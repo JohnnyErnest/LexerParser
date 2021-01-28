@@ -10,6 +10,9 @@ using Newtonsoft.Json.Linq;
 
 namespace LexerParser
 {
+    /// <summary>
+    /// A parser that parses text using user-defined rules.
+    /// </summary>
     public class Parser
     {
         public class ParserSequence : ICloneable
@@ -74,60 +77,60 @@ namespace LexerParser
                 }
                 return null;
             }
-            public bool Evaluate(string input, Lexer lexer)
-            {
-                int index = 0;
-                foreach (var section in Sections)
-                {
-                    bool optional = section.IsOptional;
-                    bool repeating = section.IsRepeating;
-                    EvaluateSequenceSectionResult result = null;
-                    if (repeating)
-                    {
-                        bool foundAtLeastOnce = false;
-                        for (int i1 = 1; i1 <= input.Length; i1++)
-                        {
-                            string str = input.Substring(index, i1);
-                            EvaluateSequenceSectionResult result1 = EvaluateSequenceSection(str, lexer, section);
-                            if (result1 != null)
-                            {
-                                if (!string.IsNullOrEmpty(result1.MatchedRule))
-                                {
-                                    foundAtLeastOnce = true;
-                                    result = result1;
-                                    break;
-                                }
-                                else
-                                {
-                                    return foundAtLeastOnce;
-                                }
-                            }
-                            else
-                            {
-                                return foundAtLeastOnce;
-                            }
-                        }
-                    }
-                    else
-                    {
-                        for (int i1 = 1; i1 <= input.Length; i1++)
-                        {
-                            string str = input.Substring(index, i1);
-                            EvaluateSequenceSectionResult result1 = EvaluateSequenceSection(str, lexer, section);
-                            if (result1 != null)
-                            {
-                                if (!string.IsNullOrEmpty(result1.MatchedRule))
-                                {
-                                    result = result1;
-                                    break;
-                                }
-                            }
-                        }
-                    }
-                    if (!optional && result == null) { return false; }
-                }
-                return true;
-            }
+            //public bool Evaluate(string input, Lexer lexer)
+            //{
+            //    int index = 0;
+            //    foreach (var section in Sections)
+            //    {
+            //        bool optional = section.IsOptional;
+            //        bool repeating = section.IsRepeating;
+            //        EvaluateSequenceSectionResult result = null;
+            //        if (repeating)
+            //        {
+            //            bool foundAtLeastOnce = false;
+            //            for (int i1 = 1; i1 <= input.Length; i1++)
+            //            {
+            //                string str = input.Substring(index, i1);
+            //                EvaluateSequenceSectionResult result1 = EvaluateSequenceSection(str, lexer, section);
+            //                if (result1 != null)
+            //                {
+            //                    if (!string.IsNullOrEmpty(result1.MatchedRule))
+            //                    {
+            //                        foundAtLeastOnce = true;
+            //                        result = result1;
+            //                        break;
+            //                    }
+            //                    else
+            //                    {
+            //                        return foundAtLeastOnce;
+            //                    }
+            //                }
+            //                else
+            //                {
+            //                    return foundAtLeastOnce;
+            //                }
+            //            }
+            //        }
+            //        else
+            //        {
+            //            for (int i1 = 1; i1 <= input.Length; i1++)
+            //            {
+            //                string str = input.Substring(index, i1);
+            //                EvaluateSequenceSectionResult result1 = EvaluateSequenceSection(str, lexer, section);
+            //                if (result1 != null)
+            //                {
+            //                    if (!string.IsNullOrEmpty(result1.MatchedRule))
+            //                    {
+            //                        result = result1;
+            //                        break;
+            //                    }
+            //                }
+            //            }
+            //        }
+            //        if (!optional && result == null) { return false; }
+            //    }
+            //    return true;
+            //}
             public object Clone()
             {
                 var result = new ParserSequence()
@@ -179,6 +182,11 @@ namespace LexerParser
             string[] _EBNFConcatenations;
             public string[] EBNFConcatenations { get { return _EBNFConcatenations; } }
             public string SyntaxColor { get; set; }
+            public (string ruleName, string[] tokens, bool caseInsensitive)[] TokensLookedUp { get; set; }
+            public bool ValidateAgainstTokenLookUps(string input)
+            {
+                return true;
+            }
             public object Clone()
             {
                 var result = new SequenceSection()
@@ -635,14 +643,87 @@ namespace LexerParser
                 return $"[Combined Results: {CombinedResults.Count}]";
             }
         }
+        public class EBNFUpdateList
+        {
+            public string IdentifierName { get; set; }
+            public string OuterResultsText { get; set; }
+            public int OuterResultLength { get { return OuterResultsText.Length; } }
+            public int MinStart { get; set; }
+            public int MaxEnd { get; set; }
+            public int Level { get; set; }
+            public bool Updated { get; set; }
+            public ParserResult Outer { get; set; }
+            public List<ParserResult> Inner { get; set; }
+            public string InnerResultsText
+            {
+                get
+                {
+                    StringBuilder sb = new StringBuilder();
+                    //foreach (var item in Inner)
+                    for(int i=0;i<Inner.Count;i++)
+                    {
+                        ParserResult item = Inner[i];
+                        sb.Append(item.InnerResultsText);
+                    }
+                    return sb.ToString();
+                }
+            }
+            public int InnerMinStart
+            {
+                get
+                {
+                    int min = int.MaxValue;
+                    //foreach (var item in Inner)
+                    for(int i=0;i<Inner.Count;i++)
+                    {
+                        ParserResult item = Inner[i];
+                        min = Math.Min(min, item.MinStart());
+                    }
+                    return min;
+                }
+            }
+            public int InnerMaxEnd
+            {
+                get
+                {
+                    int max = int.MinValue;
+                    //foreach (var item in Inner)
+                    for(int i=0;i<Inner.Count;i++)
+                    {
+                        ParserResult item = Inner[i];
+                        max = Math.Max(max, item.MaxEnd());
+                    }
+                    return max;
+                }
+            }
+            public int InnerResultTextLength
+            {
+                get { return InnerResultsText.Length; }
+            }
+        }
+        public class ReportProgressArgs : EventArgs
+        {
+            public int InputPosition { get; set; }
+            public int InputSize { get; set; }
+            public double Percent { get { return (double)InputPosition / (double)InputSize * 100.0; } }
+            public ReportProgressArgs() : base()
+            {
+
+            }
+        }
+        public delegate void ReportProgressHandler(object sender, ReportProgressArgs e);
+        public event ReportProgressHandler ReportProgress;
         public Lexer InputLexer { get; set; }
         public List<ParserSequence> Sequences { get; set; }
+        public Dictionary<string, ParserSequence> SequencesDictionary { get; set; }
         public List<(int, string, string)> ParsedSequenceLog = new List<(int, string, string)>();
         public List<(int, string, string)> ParsedSequenceSectionLog = new List<(int, string, string)>();
         public List<(int, string, string, string)> ParsedLog = new List<(int, string, string, string)>();
         public int MaxLevel { get; set; } = 100;
+        public int InputSize { get; set; }
         public int MaxParseLevel { get; set; } = -1;
         public int MaxParseIndex { get; set; } = -1;
+        public int CurrentIndex { get; set; } = -1;
         public bool CancelAllParsing = false;
         public bool UseLogging = false;
         public StringBuilder Log { get; set; } = new StringBuilder();
@@ -694,6 +775,7 @@ namespace LexerParser
                     }
                 }
             }
+            SyncSequencesDictionary();
         }
         void InitParserLog()
         {
@@ -701,16 +783,85 @@ namespace LexerParser
             ParsedSequenceSectionLog = new List<(int, string, string)>();
             ParsedLog = new List<(int, string, string, string)>();
         }
-        public bool Evaluate(string input, Lexer lexer)
+        //public bool Evaluate(string input, Lexer lexer)
+        //{
+        //    foreach (var sequence in Sequences)
+        //    {
+        //        if (sequence.Evaluate(input, lexer)) return true;
+        //    }
+        //    return false;
+        //}
+        public ConcurrentDictionary<int, string[]> TokenMap { get; set; } = new ConcurrentDictionary<int, string[]>();
+        public void BuildAllSequenceSectionTokenLookups()
         {
-            foreach (var sequence in Sequences)
+            foreach(var seq in Sequences)
             {
-                if (sequence.Evaluate(input, lexer)) return true;
+                foreach(var sec in seq.Sections.Where(x => x.Tokens != null))
+                {
+                    string[] tokens = sec.Tokens;
+                    var rules = InputLexer.Rules.Where(x => tokens.Contains(x.RuleName)).ToArray();
+                    List<(string, string[], bool)> tokenRules = new List<(string, string[], bool)>();
+                    foreach (var r in rules)
+                    {
+                        var item = InputLexer.StringsPerRule[r.RuleName];
+                        tokenRules.Add((r.RuleName, item.tokens.ToArray(), item.caseInsensitive));
+                    }
+                    sec.TokensLookedUp = tokenRules.ToArray();
+                }
             }
-            return false;
         }
+        //public void BuildAllTokensForLexer(List<Lexer.Span> spans)
+        //{
+        //    TokenMap = new ConcurrentDictionary<int, string[]>();
+        //    List<string> strings = new List<string>();
+        //    int max = spans.Max(x => x.End);
+        //    //int idx = 0;
+        //    //bool done = false;
+        //    Parallel.For(0, max, (idx) =>
+        //    {
+        //        Parallel.ForEach(spans.Where(x => (x.Start <= idx && idx < x.End)), (span) =>
+        //        {
+        //            //TokenMap.Add(idx, span.Rule.RuleName); 
+        //            if (!TokenMap.ContainsKey(idx))
+        //            {
+        //                TokenMap[idx] = new string[] { span.Rule.RuleName };
+        //            }
+        //            else
+        //            {
+        //                if (!TokenMap[idx].Contains(span.Rule.RuleName))
+        //                {
+        //                    string[] current = TokenMap[idx];
+        //                    Array.Resize<string>(ref current, current.Length + 1);
+        //                    current[current.Length - 1] = span.Rule.RuleName;
+        //                    TokenMap[idx] = current;
+        //                }
+        //            }
+        //        });
+        //        Parallel.ForEach(spans.Where(x => x.InnerSpans.Any(x1 => x1.Start <= idx && idx < x.End)), (span) =>
+        //        {
+        //            Parallel.ForEach(span.InnerSpans.Where(x => x.Start <= idx && idx < x.End), (inner) =>
+        //            {
+        //                if (!TokenMap.ContainsKey(idx))
+        //                {
+        //                    TokenMap[idx] = new string[] { span.Rule.RuleName };
+        //                }
+        //                else
+        //                {
+        //                    if (!TokenMap[idx].Contains(inner.Rule.RuleName))
+        //                    {
+        //                        string[] current = TokenMap[idx];
+        //                        Array.Resize<string>(ref current, current.Length + 1);
+        //                        current[current.Length - 1] = inner.Rule.RuleName;
+        //                        TokenMap[idx] = current;
+        //                    }
+        //                }
+        //            });
+        //        });
+        //    });
+        //}
         (int, bool, bool, List<ParserResult>, bool, bool) CheckSequenceSection(Lexer.LexerResult input, Lexer lexer, ParserSequence sequence, SequenceSection section, int index, bool foundOnce, List<ParserResult> variables, int level, ParserSequenceAndSection parent, ParserSequenceAndSection root, bool showOnConsole = false)
         {
+repeat:
             //if (level > MaxLevel)
             //{
             //    CancelAllParsing = true;
@@ -720,11 +871,11 @@ namespace LexerParser
 
             //string[] tokens = section.Tokens;
             //string[] sequences = section.Sequences;
-            bool hasTokens = section.HasTokens;
-            bool hasSequences = section.HasSequences;
 
             bool optional = section.IsOptional;
             bool repeating = section.IsRepeating;
+            bool hasTokens = section.HasTokens;
+            bool hasSequences = section.HasSequences;
 
             //var spans = input.OrganizedSpans.Where(x => x.Start <= index && index < x.End).ToArray();
             //var spans = input.OrganizedSpans.Where(x => x.IsBetween(index)).ToArray();
@@ -765,23 +916,56 @@ namespace LexerParser
             if (hasTokens)
             {
                 string[] tokens = section.Tokens;
-                //foreach (string item in tokens)
-                for(int iii=0;iii<tokens.Length;iii++)
+
+                List<Lexer.Span> spans = new List<Lexer.Span>();
+                for(int i1=0;i1<input.OrganizedPartitions.Count;i1++)
                 {
+                    Lexer.LexerResult.ResultPartition partition = input.OrganizedPartitions[i1];
+                    if (partition.Minimum <= index && index < partition.Maximum)
+                    {
+                        List<Lexer.Span> spans_1a = partition.Spans;
+                        for (int i3 = 0; i3 < spans_1a.Count; i3++)
+                        {
+                            Lexer.Span span_1a = spans_1a[i3];
+                            if (span_1a.Start <= index && index < span_1a.End)
+                            {
+                                spans.Add(span_1a);
+                            }
+                        }
+                    }
+
+                    //List<Lexer.LexerResult.ResultPartition> partitions = input.OrganizedPartitions.Where(x => x.Minimum <= index && index < x.Maximum).ToList();
+                    //for(int i2=0;i2<partitions.Count;i2++)
+                    //{
+                    //    List<Lexer.Span> spans_1a = partitions[i2].Spans;
+                    //    spans.AddRange(spans_1a.Where(x => x.Start <= index && index < x.End).ToList());
+                    //}
+                }
+
+                //List<Lexer.Span> spans = new List<Lexer.Span>();
+                ////List<Lexer.Span> spans = input.DictionarySpans.Where(x => x.Key.start <= index && x.Key.end > index).Select(x => x.Value).ToList();
+                //for (int i1 = 0; i1 < input.OrganizedSpans.Count; i1++)
+                //{
+                //    Lexer.Span span1 = input.OrganizedSpans[i1];
+                //    if (index >= span1.Start && index < span1.End) { spans.Add(span1); }
+                //    //if (span1.Start <= index && index < span1.End) { spans.Add(span1); }
+                //}
+
+                //foreach (string item in tokens)
+                for (int iii = 0; iii < tokens.Length; iii++)
+                {
+
                     string item = tokens[iii];
-                    //Lexer.LexerRules.ILexerRule rule = lexer.Rules.Where(x => item.Equals(x.RuleName, StringComparison.Ordinal)).FirstOrDefault();
-                    Lexer.LexerRules.ILexerRule rule = lexer.Rules.Where(x => item.Equals(x.RuleName)).FirstOrDefault();
+                    //Lexer.LexerRules.ILexerRule rule = lexer.Rules.Where(x => item.Equals(x.RuleName)).FirstOrDefault();
+                    Lexer.LexerRules.ILexerRule rule = null;
+                    if (lexer.RulesDictionary.ContainsKey(item))
+                    {
+                        rule = lexer.RulesDictionary[item];
+                    }
                     if (rule != null)
                     {
-                        List<Lexer.Span> spans = new List<Lexer.Span>();
-                        for (int i1 = 0; i1 < input.OrganizedSpans.Count; i1++)
-                        {
-                            Lexer.Span span1 = input.OrganizedSpans[i1];
-                            if (span1.Start <= index && index < span1.End) { spans.Add(span1); }
-                        }
-
                         //foreach (Lexer.Span span in spans)
-                        for(int iiii=0; iiii<spans.Count;iiii++)
+                        for (int iiii = 0; iiii < spans.Count; iiii++)
                         {
                             Lexer.Span span = spans[iiii];
                             if (!found)
@@ -792,6 +976,7 @@ namespace LexerParser
                                     found = true;
                                     //foundInParsed = true;
                                     index += span.Length;
+                                    CurrentIndex = index;
                                     //MaxParseIndex = Math.Max(index, MaxParseIndex);
                                     string groupName = rule.RuleName;
                                     if (groupName.IndexOf(":::") > -1)
@@ -814,22 +999,35 @@ namespace LexerParser
                                     };
                                     //parent.Node = result1;
                                     variables.Add(result1);
+                                    break;
                                 }
                             }
                             if (!found)
                             {
-                                Lexer.Span[] innerArray = span.InnerSpans.Where(x => x.Start <= index && index < x.End).ToArray();
+                                //Lexer.Span[] innerArray = span.InnerSpans.Where(x => x.Start <= index && index < x.End).ToArray();
+                                List<Lexer.Span> innerArray = new List<Lexer.Span>();
+                                for (int ii=0;ii<span.InnerSpans.Count;ii++)
+                                {
+                                    Lexer.Span span1 = span.InnerSpans[ii];
+                                    //if (span1.Start <= index && index < span1.End)
+                                    if (index >= span1.Start && index < span1.End)
+                                    {
+                                        innerArray.Add(span1);
+                                    }
+                                }
+                                //Lexer.Span[] innerArray = spans2.ToArray();
                                 //foreach (Lexer.Span inner in innerArray)
-                                for(int ia=0;ia<innerArray.Length;ia++)
+                                for (int ia = 0; ia < innerArray.Count; ia++)
                                 {
                                     Lexer.Span inner = innerArray[ia];
                                     if (!found)
                                     {
-                                        if (inner.Rule.RuleName == rule.RuleName)
+                                        if (inner.Rule.RuleName.Equals(rule.RuleName))
                                         {
                                             found = true;
                                             //foundInParsed = true;
                                             index += inner.Length;
+                                            CurrentIndex = index;
                                             //MaxParseIndex = Math.Max(index, MaxParseIndex);
                                             string groupName = rule.RuleName;
                                             if (groupName.IndexOf(":::") > -1)
@@ -852,12 +1050,21 @@ namespace LexerParser
                                             };
                                             //parent.Node = result1;
                                             variables.Add(result1);
+                                            break;
                                         }
                                     }
                                 }
                             }
                         }
                     }
+                }
+
+            }
+            if (found)
+            {
+                if (ReportProgress != null)
+                {
+                    ReportProgress(this, new ReportProgressArgs() { InputPosition = index, InputSize = this.InputSize });
                 }
             }
             if (hasSequences && !found)
@@ -869,7 +1076,12 @@ namespace LexerParser
                 {
                     string item = sequences[iii];
                     //ParserSequence seq = Sequences.FirstOrDefault(x => item.Equals(x.SequenceName, StringComparison.OrdinalIgnoreCase));
-                    ParserSequence seq = Sequences.FirstOrDefault(x => item.Equals(x.SequenceName));
+                    //ParserSequence seq = Sequences.FirstOrDefault(x => item.Equals(x.SequenceName));
+                    ParserSequence seq = null;
+                    if (SequencesDictionary.ContainsKey(item))
+                    {
+                        seq = SequencesDictionary[item];
+                    }
                     //if (seq != null && seq2 == null)
                     //{
                     //    Console.WriteLine(seq);
@@ -940,13 +1152,14 @@ namespace LexerParser
             if (found && repeating)
             {
                 foundOnce = true;
-                var newParent = new ParserSequenceAndSection() { Section = section, Sequence = sequence/*, Node = parent.Node*/ };
-                var result = CheckSequenceSection(input, lexer, sequence, section, index, foundOnce, variables, level, newParent, root, showOnConsole);
-                if (result.Item2)
-                {
-                    variables = result.Item4;
-                }
-                (index, found, foundOnce) = (result.Item1, result.Item2, result.Item3);
+                //var newParent = new ParserSequenceAndSection() { Section = section, Sequence = sequence/*, Node = parent.Node*/ };
+                goto repeat;
+                //var result = CheckSequenceSection(input, lexer, sequence, section, index, foundOnce, variables, level, newParent, root, showOnConsole);
+                //if (result.Item2)
+                //{
+                //    variables = result.Item4;
+                //}
+                //(index, found, foundOnce) = (result.Item1, result.Item2, result.Item3);
             }
             else if (found)
             {
@@ -966,11 +1179,13 @@ namespace LexerParser
             bool found = false;
             List<ParserResult> foundItems = new List<ParserResult>();
             int countOptional = sequence.Sections.Where(x => x.IsOptional).Count();
-            int countSections = sequence.Sections.Count();
+            int countSections = sequence.Sections.Count;
             bool foundAllNonOptional = true;
             int sectionIndex = 0;
-            foreach (var section in sequence.Sections)
+            //foreach (var section in sequence.Sections)
+            for(int i= 0; i < sequence.Sections.Count; i++)
             {
+                SequenceSection section = sequence.Sections[i];
                 List<ParserResult> variables = new List<ParserResult>();
 
                 //string idString = section.ToString();
@@ -1069,7 +1284,13 @@ namespace LexerParser
             List<ParserSequence> seq = new List<ParserSequence>();
             if (sequenceName != "")
             {
-                seq = Sequences.Where(x => x.SequenceName == sequenceName).ToList();
+                //seq = Sequences.Where(x => x.SequenceName == sequenceName).ToList();
+                ParserSequence seq1 = null;
+                if (SequencesDictionary.ContainsKey(sequenceName))
+                {
+                    seq1 = SequencesDictionary[sequenceName];
+                    seq.Add(seq1);
+                }
             }
             else
             {
@@ -1159,13 +1380,20 @@ namespace LexerParser
             List<ParserSequence> seq = new List<ParserSequence>();
             if (sequenceName != "")
             {
-                seq = Sequences.Where(x => x.SequenceName == sequenceName).ToList();
+                ParserSequence seq1 = null;
+                if (SequencesDictionary.ContainsKey(sequenceName))
+                {
+                    seq1 = SequencesDictionary[sequenceName];
+                    seq.Add(seq1);
+                }
+                //seq = Sequences.Where(x => x.SequenceName == sequenceName).ToList();
+                //seq = SequencesDictionary
             }
             else
             {
                 seq = Sequences.ToList();
             }
-            bool foundOnce = false;
+            //bool foundOnce = false;
             bool done = false;
             while(!done)
             {
@@ -1229,7 +1457,7 @@ namespace LexerParser
                     }
 
                     found = result.Item2;
-                    if (found) { foundOnce = true; }
+                    //if (found) { foundOnce = true; }
                     if (found)
                     {
                         parserResult.InnerResults = result.Item3;
@@ -1350,6 +1578,37 @@ namespace LexerParser
             var items = OrganizeParentNodes(result.Item3);
             return new Result() { Matched = result.Item1, LexerResult = lexerResult, Sequence = result.Item2, Results = items };
         }
+        public Result Parse(Lexer.LexerResult input, Lexer lexer = null, string sequenceName = "", bool showOnConsole = false, int maxSlidingWindow = -1)
+        {
+            MaxParseLevel = -1;
+            MaxParseIndex = -1;
+            InitParserLog();
+            //Lexer.LexerResult lexerResult = InputLexer.GetSpans(input, maxSlidingWindow: maxSlidingWindow);
+            //Lexer.LexerResult lexerResult = new Lexer.LexerResult()
+            //{
+            //    OrganizedSpans = input
+            //};
+
+            (bool, ParserSequence, List<ParserResult>) result = (false, null, new List<ParserResult>());
+            if (lexer != null && sequenceName != null)
+            {
+                result = this.Check(input, lexer, sequenceName, showOnConsole);
+            }
+            else if (lexer != null)
+            {
+                result = this.Check(input, lexer, showOnConsole: showOnConsole);
+            }
+            else if (sequenceName != null)
+            {
+                result = this.Check(input, InputLexer, sequenceName, showOnConsole);
+            }
+            else
+            {
+                result = this.Check(input, InputLexer);
+            }
+            var items = OrganizeParentNodes(result.Item3);
+            return new Result() { Matched = result.Item1, LexerResult = input, Sequence = result.Item2, Results = items };
+        }
         public Result Search(string input, Lexer lexer = null, string sequenceName = "", bool showOnConsole = false, int maxSlidingWindow = -1)
         {
             MaxParseLevel = -1;
@@ -1381,7 +1640,7 @@ namespace LexerParser
             MaxParseLevel = -1;
             MaxParseIndex = -1;
             InitParserLog();
-            bool foundAny = false;
+            //bool foundAny = false;
             //(bool, ParserSequence, List<ParserResult>) result1 = (false, null, new List<ParserResult>());
             List<ParserResult> results = new List<ParserResult>();
             SearchResult searchResults = new SearchResult();
@@ -1434,10 +1693,12 @@ namespace LexerParser
         bool IsSequence(string name)
         {
             return Sequences.Where(x => x.SequenceName == name).Count() > 0;
+            //return SequencesDictionary.ContainsKey(name);
         }
         bool IsToken(string name)
         {
             return InputLexer.Rules.Where(x => x.RuleName == name).Count() > 0;
+            //return InputLexer.RulesDictionary.ContainsKey(name);
         }
         void AddEBNFRuleSections(string ruleIdentifier, string identifier, string inputRule, string outerText)
         {
@@ -1538,52 +1799,6 @@ namespace LexerParser
                 InputLexer.Rules.RemoveAt(removeList[i].Item1);
             }
         }
-        public class EBNFUpdateList
-        {
-            public string IdentifierName { get; set; }
-            public string OuterResultsText { get; set; }
-            public int OuterResultLength { get { return OuterResultsText.Length; } }
-            public int MinStart { get; set; }
-            public int MaxEnd { get; set; }
-            public int Level { get; set; }
-            public bool Updated { get; set; }
-            public ParserResult Outer { get; set; }
-            public List<ParserResult> Inner { get; set; }
-            public string InnerResultsText { get
-                {
-                    StringBuilder sb = new StringBuilder();
-                    foreach(var item in Inner)
-                    {
-                        sb.Append(item.InnerResultsText);
-                    }
-                    return sb.ToString();
-                } }
-            public int InnerMinStart { get
-                {
-                    int min = int.MaxValue;
-                    foreach(var item in Inner)
-                    {
-                        min = Math.Min(min, item.MinStart());
-                    }
-                    return min;
-                } }
-            public int InnerMaxEnd
-            {
-                get
-                {
-                    int max = int.MinValue;
-                    foreach (var item in Inner)
-                    {
-                        max = Math.Max(max, item.MaxEnd());
-                    }
-                    return max;
-                }
-            }
-            public int InnerResultTextLength
-            {
-                get { return InnerResultsText.Length; }
-            }
-        }
         public void AddEBNFRule(string input)
         {
             var firstResult = Parse(input, sequenceName: "rule");
@@ -1679,17 +1894,39 @@ namespace LexerParser
                     AddEBNFRule(ruleText);
                 }
             }
+            InputLexer.SyncRuleDictionary();
+            SyncSequencesDictionary();
         }
-        public void AddEBNFGrammar(string[] input)
+        public void AddEBNFGrammar(string[] input, bool checkFirst = false)
         {
-            foreach(var item in input)
+            if (checkFirst)
             {
-                var rule = Parse(item, sequenceName: "rule");
-                if (rule.Matched)
+                foreach (var item in input)
                 {
-                    string ruleText = rule.Results[0].InnerResultsText.Trim();
-                    AddEBNFRule(ruleText);
+                    var rule = Parse(item, sequenceName: "rule");
+                    if (rule.Matched)
+                    {
+                        string ruleText = rule.Results[0].InnerResultsText.Trim();
+                        AddEBNFRule(ruleText);
+                    }
                 }
+            }
+            else
+            {
+                foreach (var item in input)
+                {
+                    AddEBNFRule(item.Trim());
+                }
+            }
+            InputLexer.SyncRuleDictionary();
+            SyncSequencesDictionary();
+        }
+        public void SyncSequencesDictionary()
+        {
+            SequencesDictionary = new Dictionary<string, ParserSequence>();
+            foreach(var seq in Sequences)
+            {
+                SequencesDictionary[seq.SequenceName] = seq;
             }
         }
     }

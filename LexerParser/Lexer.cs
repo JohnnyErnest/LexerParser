@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -9,6 +10,9 @@ using Newtonsoft.Json.Linq;
 
 namespace LexerParser
 {
+    /// <summary>
+    /// A class that tokenizes text into lexemes.
+    /// </summary>
     public class Lexer
     {
         public class LexerRules
@@ -140,14 +144,14 @@ namespace LexerParser
                 {
                     return $"[{RuleName}, CaseInsensitive String:{Token}]";
                 }
-                public bool Evaluate(char input)            
+                public bool Evaluate(char input)
                 {
                     return input.ToString().Equals(Token, StringComparison.OrdinalIgnoreCase);
                 }
                 public override bool Equals(object obj)
                 {
                     var o = (CaseInsensitiveStringLexerRule)obj;
-                    if (o.RuleName == this.RuleName) return true;
+                    if (o.RuleName.Equals(this.RuleName)) return true;
                     return false;
                 }
                 public override int GetHashCode()
@@ -390,6 +394,24 @@ namespace LexerParser
             {
                 return Start <= index && index < End;
             }
+            public List<Span> HasRuleName(string ruleName)
+            {
+                List<Span> results = new List<Span>();
+                if (ruleName == this.Rule.RuleName) { results.Add(this); }
+                return results;
+            }
+            public List<Span> HasRuleNameInner(string ruleName)
+            {
+                List<Span> results = new List<Span>();
+                foreach (var inner in InnerSpans)
+                {
+                    if (inner.Rule.RuleName == ruleName)
+                    {
+                        results.Add(inner);
+                    }
+                }
+                return results;
+            }
             public object Clone()
             {
                 var span = new Span() { Text = this.Text, Start = this.Start, Rule = this.Rule };
@@ -420,16 +442,25 @@ namespace LexerParser
         }
         public class LexerResult
         {
+            public class ResultPartition
+            {
+                public int Minimum { get; set; }
+                public int Maximum { get; set; }
+                public List<Span> Spans { get; set; }
+            }
             public List<Span> RawSpans { get; set; }
             public List<Span> OrganizedSpans { get; set; }
+            public List<ResultPartition> OrganizedPartitions { get; set; }
             public List<Span> SingularSpans { get; set; }
             public List<Span> Parsed1 { get; set; }
             public List<Span> ParsedOrganized { get; set; }
             public Task<List<Span>> OrganizableSpans { get; set; }
             public List<LexerResult> CollectionInnerResults { get; set; } = new List<LexerResult>();
             public List<(int Line, int Index, Span Data)> CollectionInnerSpans { get; set; } = new List<(int, int, Span)>();
+            public Dictionary<(int start, int end), Span> DictionarySpans = new Dictionary<(int, int), Span>();
         }
         public List<LexerRules.ILexerRule> Rules { get; set; }
+        public Dictionary<string, LexerRules.ILexerRule> RulesDictionary { get; set; } = new Dictionary<string, LexerRules.ILexerRule>();
         LexerRules.ILexerRule GetRule(string key, JToken token)
         {
             JToken value = token;
@@ -521,6 +552,15 @@ namespace LexerParser
                     (Rules[i] as LexerRules.ILexerLookup).LookupRule(Rules);
                 }
             }
+            SyncRuleDictionary();
+        }
+        public void SyncRuleDictionary()
+        {
+            RulesDictionary = new Dictionary<string, LexerRules.ILexerRule>();
+            foreach (var value in Rules)
+            {
+                RulesDictionary.Add(value.RuleName, value);
+            }
         }
         public Lexer(string defaultConfigurationFile, string userConfigurationFile)
         {
@@ -545,7 +585,6 @@ namespace LexerParser
         {
             return Rules.Where(x => x.Evaluate(input)).ToList();
         }
-
         List<LexerRules.ILexerRule> ProcessRules(string input)
         {
             return Rules.Where(x => x.Evaluate(input)).ToList();
@@ -554,35 +593,223 @@ namespace LexerParser
         {
             return Rules.Where(x => x.Evaluate(input)).ToList();
         }
+        public Dictionary<char, string[]> RulesPerChar { get; set; } = new Dictionary<char, string[]>();
+        public Dictionary<string, string[]> RulesPerString { get; set; } = new Dictionary<string, string[]>();
+        public Dictionary<string, string[]> RulesPerCIString { get; set; } = new Dictionary<string, string[]>();
+        public Dictionary<string, string> RuleTypes { get; set; } = new Dictionary<string, string>();
+        public Dictionary<string, (List<string> tokens, bool caseInsensitive)> StringsPerRule = new Dictionary<string, (List<string>, bool)>();
+        public void BuildTokenLookupMap()
+        {
+            foreach (var r in Rules)
+            {
+                //Console.WriteLine("Building for " + r.RuleName + "/" + r.RuleType);
+                RuleTypes[r.RuleName] = r.RuleType;
+                BuildTokenLookupMapForRule(r.RuleName);
+                BuildStringsPerRule(r.RuleName);
+            }
+        }
+        void BuildStringsPerRule(string ruleName, string customRuleName = "")
+        {
+            Lexer.LexerRules.ILexerRule rule = Rules.Where(x => x.RuleName == ruleName).FirstOrDefault();
+            if (rule != null)
+            {
+                if (rule is Lexer.LexerRules.CharLexerRule)
+                {
+                    if (customRuleName != "") { ruleName = customRuleName; }
+                    Lexer.LexerRules.CharLexerRule rule1 = rule as Lexer.LexerRules.CharLexerRule;
+                    if (!StringsPerRule.ContainsKey(ruleName)) { StringsPerRule[ruleName] = (new List<string>(), false); }
+                    StringsPerRule[ruleName].tokens.Add(rule1.Token.ToString());
+                }
+                else if (rule is Lexer.LexerRules.CharInLexerRule)
+                {
+                    if (customRuleName != "") { ruleName = customRuleName; }
+                    Lexer.LexerRules.CharInLexerRule rule1 = rule as Lexer.LexerRules.CharInLexerRule;
+                    List<string> tokens1 = new List<string>();
+                    foreach (var token in rule1.Tokens)
+                    {
+                        tokens1.Add(token.ToString());
+                    }
+                    if (!StringsPerRule.ContainsKey(ruleName)) { StringsPerRule[ruleName] = (new List<string>(), false); }
+                    StringsPerRule[ruleName].tokens.AddRange(tokens1);
+                }
+                else if (rule is Lexer.LexerRules.StringLexerRule)
+                {
+                    if (customRuleName != "") { ruleName = customRuleName; }
+                    Lexer.LexerRules.StringLexerRule rule1 = rule as Lexer.LexerRules.StringLexerRule;
+                    if (!StringsPerRule.ContainsKey(ruleName)) { StringsPerRule[ruleName] = (new List<string>(), false); }
+                    StringsPerRule[ruleName].tokens.Add(rule1.StringToken);
+                }
+                else if (rule is Lexer.LexerRules.CaseInsensitiveStringLexerRule)
+                {
+                    if (customRuleName != "") { ruleName = customRuleName; }
+                    Lexer.LexerRules.CaseInsensitiveStringLexerRule rule1 = rule as Lexer.LexerRules.CaseInsensitiveStringLexerRule;
+                    if (!StringsPerRule.ContainsKey(ruleName)) { StringsPerRule[ruleName] = (new List<string>(), true); }
+                    StringsPerRule[ruleName].tokens.Add(rule1.StringToken);
+                }
+                else if (rule is Lexer.LexerRules.RuleLookupLexerRule)
+                {
+                    if (customRuleName != "") { ruleName = customRuleName; }
+                    Lexer.LexerRules.RuleLookupLexerRule rule1 = rule as Lexer.LexerRules.RuleLookupLexerRule;
+                    BuildStringsPerRule(rule1.RuleLookupName, ruleName);
+                }
+                else if (rule is Lexer.LexerRules.RuleCollectionRule)
+                {
+                    if (customRuleName != "") { ruleName = customRuleName; }
+                    Lexer.LexerRules.RuleCollectionRule rule1 = rule as Lexer.LexerRules.RuleCollectionRule;
+                    foreach (Lexer.LexerRules.ILexerRule r in rule1.Rules)
+                    {
+                        if (r is Lexer.LexerRules.RuleLookupLexerRule)
+                        {
+                            var r1 = r as Lexer.LexerRules.RuleLookupLexerRule;
+                            BuildStringsPerRule(r1.RuleLookupName, ruleName);
+                        }
+                    }
+                }
+                else if (rule is Lexer.LexerRules.RepeatRuleLexerRule)
+                {
+                    if (customRuleName != "") { ruleName = customRuleName; }
+                    Lexer.LexerRules.RepeatRuleLexerRule rule1 = rule as Lexer.LexerRules.RepeatRuleLexerRule;
+                    BuildStringsPerRule(rule1.RepeatRuleName, ruleName);
+                }
+            }
+        }
+        void BuildTokenLookupMapForRule(string ruleName, string customRuleName = "")
+        {
+            Lexer.LexerRules.ILexerRule rule = Rules.Where(x => x.RuleName == ruleName).FirstOrDefault();
+            if (rule != null)
+            {
+                if (rule is Lexer.LexerRules.CharLexerRule)
+                {
+                    if (customRuleName != "") { ruleName = customRuleName; }
+                    Lexer.LexerRules.CharLexerRule rule1 = rule as Lexer.LexerRules.CharLexerRule;
+                    if (RulesPerChar.ContainsKey(rule1.Token))
+                    {
+                        string[] current = RulesPerChar[rule1.Token];
+                        if (current.Contains(ruleName))
+                        {
+                            Array.Resize<string>(ref current, current.Length + 1);
+                            current[current.Length - 1] = ruleName;
+                            RulesPerChar[rule1.Token] = current;
+                        }
+                    }
+                    else
+                    {
+                        RulesPerChar[rule1.Token] = new string[] { ruleName };
+                    }
+                }
+                else if (rule is Lexer.LexerRules.CharInLexerRule)
+                {
+                    if (customRuleName != "") { ruleName = customRuleName; }
+                    Lexer.LexerRules.CharInLexerRule rule1 = rule as Lexer.LexerRules.CharInLexerRule;
+                    foreach (var token in rule1.Tokens)
+                    {
+                        if (RulesPerChar.ContainsKey(token))
+                        {
+                            string[] current = RulesPerChar[token];
+                            if (current.Contains(ruleName))
+                            {
+                                Array.Resize<string>(ref current, current.Length + 1);
+                                current[current.Length - 1] = ruleName;
+                                RulesPerChar[token] = current;
+                            }
+                        }
+                        else
+                        {
+                            RulesPerChar[token] = new string[] { ruleName };
+                        }
+                    }
+                }
+                else if (rule is Lexer.LexerRules.StringLexerRule)
+                {
+                    if (customRuleName != "") { ruleName = customRuleName; }
+                    Lexer.LexerRules.StringLexerRule rule1 = rule as Lexer.LexerRules.StringLexerRule;
+                    if (RulesPerString.ContainsKey(rule1.Token))
+                    {
+                        string[] current = RulesPerString[rule1.Token];
+                        if (current.Contains(ruleName))
+                        {
+                            Array.Resize<string>(ref current, current.Length + 1);
+                            current[current.Length - 1] = ruleName;
+                            RulesPerString[rule1.Token] = current;
+                        }
+                    }
+                    else
+                    {
+                        RulesPerString[rule1.Token] = new string[] { ruleName };
+                    }
+                }
+                else if (rule is Lexer.LexerRules.CaseInsensitiveStringLexerRule)
+                {
+                    if (customRuleName != "") { ruleName = customRuleName; }
+                    Lexer.LexerRules.CaseInsensitiveStringLexerRule rule1 = rule as Lexer.LexerRules.CaseInsensitiveStringLexerRule;
+                    if (RulesPerCIString.ContainsKey(rule1.Token.ToLower()))
+                    {
+                        string[] current = RulesPerCIString[rule1.Token.ToLower()];
+                        if (current.Contains(ruleName))
+                        {
+                            Array.Resize<string>(ref current, current.Length + 1);
+                            current[current.Length - 1] = ruleName;
+                            RulesPerCIString[rule1.Token.ToLower()] = current;
+                        }
+                    }
+                    else
+                    {
+                        RulesPerCIString[rule1.Token.ToLower()] = new string[] { ruleName };
+                    }
+                }
+                else if (rule is Lexer.LexerRules.RuleLookupLexerRule)
+                {
+                    if (customRuleName != "") { ruleName = customRuleName; }
+                    Lexer.LexerRules.RuleLookupLexerRule rule1 = rule as Lexer.LexerRules.RuleLookupLexerRule;
+                    BuildTokenLookupMapForRule(rule1.RuleLookupName, ruleName);
+                }
+                else if (rule is Lexer.LexerRules.RuleCollectionRule)
+                {
+                    if (customRuleName != "") { ruleName = customRuleName; }
+                    Lexer.LexerRules.RuleCollectionRule rule1 = rule as Lexer.LexerRules.RuleCollectionRule;
+                    foreach (Lexer.LexerRules.ILexerRule r in rule1.Rules)
+                    {
+                        if (r is Lexer.LexerRules.RuleLookupLexerRule)
+                        {
+                            var r1 = r as Lexer.LexerRules.RuleLookupLexerRule;
+                            BuildTokenLookupMapForRule(r1.RuleLookupName, ruleName);
+                        }
+                    }
+                }
+                else if (rule is Lexer.LexerRules.RepeatRuleLexerRule)
+                {
+                    if (customRuleName != "") { ruleName = customRuleName; }
+                    Lexer.LexerRules.RepeatRuleLexerRule rule1 = rule as Lexer.LexerRules.RepeatRuleLexerRule;
+                    BuildTokenLookupMapForRule(rule1.RepeatRuleName, ruleName);
+                }
+            }
+        }
         public LexerResult GetSpans(string input, int maxSlidingWindow = -1)
         {
             var spans1 = ProcessTextNew(input, removeInnerDupes: false, maxSlidingWindow: maxSlidingWindow);
-            //var spans2 = ProcessText(input, removeInnerDupes: true);
-            //var organized1 = OrganizeSpansNew(spans1.Item1);
             var organized1 = spans1.Item1;
-            //var organized2 = OrganizeSpans(organized1);
-            
-            //var organized1 = OrganizeSpans(spans1.Item1);
 
-            List<Span> newSpans = new List<Span>();
-            foreach(var item in organized1)
-            {
-                var node = item.Clone() as Span;
-                foreach (var item1 in node.InnerSpans)
-                {
-                    //item1.InnerSpans = new List<Span>();
-                    item1.InnerSpans.Clear();
 
-                    //var nodeInner = item1.Clone() as Span;
-                    //nodeInner.InnerSpans = new List<Span>();
-                    //newSpans.Add(nodeInner);
-                }
-                //node.InnerSpans.Clear();
-                newSpans.Add(node);
-                //item.InnerSpans = new List<Span>();
-            }
+            //List<Span> newSpans = new List<Span>();
+            //foreach (var item in organized1)
+            //{
+            //    var node = item.Clone() as Span;
+            //    foreach (var item1 in node.InnerSpans)
+            //    {
+            //        //item1.InnerSpans = new List<Span>();
+            //        item1.InnerSpans.Clear();
 
-            var organized2 = OrganizeSpans(newSpans);
+            //        //var nodeInner = item1.Clone() as Span;
+            //        //nodeInner.InnerSpans = new List<Span>();
+            //        //newSpans.Add(nodeInner);
+            //    }
+            //    //node.InnerSpans.Clear();
+            //    newSpans.Add(node);
+            //    //item.InnerSpans = new List<Span>();
+            //}
+
+            var organized2 = OrganizeSpans(organized1);
+            var partitions = OrganizePartitions(organized2);
 
             //var organized2 = OrganizeSpans(spans1.Item1);
             //if (organized1.Count != organized2.Count)
@@ -608,15 +835,16 @@ namespace LexerParser
             //}
             var result = new LexerResult()
             {
-                RawSpans = spans1.Item1,
+                //RawSpans = spans1.Item1,
                 //OrganizedSpans = OrganizeSpans(spans.Item1),
-                OrganizedSpans = organized1,
-                SingularSpans = null,
-                Parsed1 = newSpans,
-                ParsedOrganized = organized2,
-                OrganizableSpans = new Task<List<Span>>(() => { return OrganizeSpans(newSpans); })
+                OrganizedSpans = organized2,
+                OrganizedPartitions = partitions
+                //SingularSpans = null,
+                //Parsed1 = newSpans,
+                //ParsedOrganized = organized2,
+                //OrganizableSpans = new Task<List<Span>>(() => { return OrganizeSpans(newSpans); })
             };
-            result.OrganizableSpans.Start();
+            //result.OrganizableSpans.Start();
             //var result = new LexerResult()
             //{
             //    RawSpans = spans1.Item1,
@@ -632,40 +860,26 @@ namespace LexerParser
         {
             LexerResult lexerResult = new LexerResult();
             List<LexerResult> results = new List<LexerResult>();
-            foreach(string line in input)
+            foreach (string line in input)
             {
-                var spans1 = ProcessTextNew(line, removeInnerDupes: false, maxSlidingWindow: maxSlidingWindow);
-                var organized1 = spans1.Item1;
-                var org1a = OrganizeSpans(organized1);
-                //List<Span> newSpans = new List<Span>();
-                //foreach (var item in organized1)
-                //{
-                //    var node = item.Clone() as Span;
-                //    foreach (var item1 in node.InnerSpans)
-                //    {
-                //        item1.InnerSpans.Clear();
-                //    }
-                //    newSpans.Add(node);
-                //}
-                //var organized2 = OrganizeSpans(newSpans);
+                var spans1 = ProcessTextNew(line + Environment.NewLine, removeInnerDupes: false, maxSlidingWindow: maxSlidingWindow);
+                //var organized1 = spans1.Item1;
+                var org1a = OrganizeSpans(spans1.Item1);
+
                 var result = new LexerResult()
                 {
-                    RawSpans = organized1,
+                    //RawSpans = organized1,
                     OrganizedSpans = org1a,
-                    SingularSpans = null,
-                    //Parsed1 = newSpans,
-                    //ParsedOrganized = organized2,
-                    //OrganizableSpans = new Task<List<Span>>(() => { return OrganizeSpans(newSpans); })
+                    //SingularSpans = null,
                 };
-                //result.OrganizableSpans.Start();
                 results.Add(result);
             }
             List<(int Line, int Index, Span Data)> spans = new List<(int, int, Span)>();
             int Line = 0;
-            foreach(var item in results)
+            foreach (var item in results)
             {
                 int Index = 0;
-                foreach(var item1 in item.OrganizedSpans)
+                foreach (var item1 in item.OrganizedSpans)
                 {
                     spans.Add((Line, Index, item1));
                     Index++;
@@ -674,20 +888,22 @@ namespace LexerParser
             }
             lexerResult.CollectionInnerResults = results;
             lexerResult.CollectionInnerSpans = spans;
+            lexerResult.OrganizedSpans = TransposeSpans(spans);
+            lexerResult.OrganizedPartitions = OrganizePartitions(lexerResult.OrganizedSpans);
+
             return lexerResult;
         }
         public (List<Span>, List<Span>, List<Span>) ProcessTextNew(string input, bool removeInnerDupes = false, int maxSlidingWindow = -1)
         {
-            var charRules = Rules.Where(x => new[] { "Char", "CharIn" }.Contains(x.RuleType)).ToArray();
-            var stringRules = Rules.Where(x => new[] { "CaseInsensitiveString", "String" }.Contains(x.RuleType)).ToArray();
-            var lookupRules = Rules.Where(x => x.RuleType == "RuleLookup").ToArray();
-            var ruleCollections = Rules.Where(x => x.RuleType == "RuleCollection").ToArray();
-            var repeatRules = Rules.Where(x => x.RuleType == "RepeatRule").ToArray();
+            LexerRules.ILexerRule[] charRules = Rules.Where(x => x.RuleType == "Char" || x.RuleType == "CharIn").ToArray();
+            LexerRules.ILexerRule[] stringRules = Rules.Where(x => x.RuleType == "String" || x.RuleType == "CaseInsensitiveString").ToArray();
+            LexerRules.ILexerRule[] lookupRules = Rules.Where(x => x.RuleType == "RuleLookup").ToArray();
+            LexerRules.ILexerRule[] ruleCollections = Rules.Where(x => x.RuleType == "RuleCollection").ToArray();
+            LexerRules.ILexerRule[] repeatRules = Rules.Where(x => x.RuleType == "RepeatRule").ToArray();
 
             List<Span> spans = new List<Span>();
             Func<string, List<Span>> checkSingularRules1 = new Func<string, List<Span>>((input1) =>
             {
-                //int idx = 0;
                 List<Span> spans1 = new List<Span>();
                 //foreach (var c in input1)
                 //{
@@ -697,6 +913,7 @@ namespace LexerParser
                 //    }
                 //    idx++;
                 //}
+
                 for (int idx = 0; idx < input.Length; idx++)
                 {
                     char c = input[idx];
@@ -706,13 +923,38 @@ namespace LexerParser
                         if (r.Evaluate(c)) { spans1.Add(new Span() { Start = idx, Rule = r, Text = c.ToString(), InnerSpans = new List<Span>() }); }
                     }
                 }
+                spans1 = spans1.OrderBy(x => x.Start).ToList();
+
+                //ConcurrentBag<Lexer.Span> spans_A = new ConcurrentBag<Lexer.Span>();
+                //var smth = Parallel.For(0, input.Length, (idx1, state1) =>
+                //{
+                //    //char c = input.AsSpan(idx1, 1)[0];
+                //    char c = input[idx1];
+                //    Parallel.For(0, charRules.Length, (ii, state2) =>
+                //    {
+                //        Lexer.LexerRules.ILexerRule r = charRules[ii];
+                //        if (r.Evaluate(c))
+                //        {
+                //            spans_A.Add(new Span() { Start = idx1, Rule = r, Text = c.ToString(), InnerSpans = new List<Span>() });
+                //        }
+                //    });
+                //});
+                //spans1 = spans_A.OrderBy(x => x.Start).ToList();
+
+                //spans1 = spans_A.ToList();
+                //spans1 = spans1.OrderBy(x => x.Start).ToList();
+                //Console.WriteLine("YAY " + smth.IsCompleted);
+
                 return spans1;
             });
             Func<string, List<Span>> checkSingularRules2 = new Func<string, List<Span>>((input1) =>
             {
                 List<Span> spans1 = new List<Span>();
-                foreach (var r in stringRules.Where(x => x.RuleType == "String"))
+                LexerRules.ILexerRule[] rules1 = stringRules.Where(x => x.RuleType == "String").ToArray();
+                //foreach (var r in rules1)
+                for (int ii = 0; ii < rules1.Length; ii++)
                 {
+                    LexerRules.ILexerRule r = rules1[ii];
                     if (input1.IndexOf(r.StringToken) > -1)
                     {
                         int idx1 = 0;
@@ -729,8 +971,11 @@ namespace LexerParser
                     }
                 }
                 string input1Lower = input1.ToLower();
-                foreach (var r in stringRules.Where(x => x.RuleType == "CaseInsensitiveString"))
+                LexerRules.ILexerRule[] rules2 = stringRules.Where(x => x.RuleType == "CaseInsensitiveString").ToArray();
+                //foreach (var r in rules2)
+                for (int ii = 0; ii < rules2.Length; ii++)
                 {
+                    LexerRules.ILexerRule r = rules2[ii];
                     //if (input1Lower.Contains(r.StringToken.ToLower()))
                     if (input1.IndexOf(r.StringToken, StringComparison.OrdinalIgnoreCase) > -1)
                     {
@@ -754,7 +999,7 @@ namespace LexerParser
 
             Func<string, int, List<Span>> checkLookupRules = new Func<string, int, List<Span>>((input1, idx1) => {
                 List<Span> spans1 = new List<Span>();
-                foreach(var r in lookupRules)
+                foreach (var r in lookupRules)
                 {
                     if ((r as Lexer.LexerRules.RuleLookupLexerRule).LookedUpRule.Evaluate(input1))
                     {
@@ -764,14 +1009,14 @@ namespace LexerParser
                 return spans1;
             });
             List<Span> lookupSpans = new List<Span>();
-            for(int i=0;i<input.Length;i++)
+            for (int i = 0; i < input.Length; i++)
             {
                 lookupSpans.AddRange(checkLookupRules(input[i].ToString(), i));
             }
             Func<string, int, List<Span>> ruleCollectionRules = new Func<string, int, List<Span>>((input1, idx1) =>
             {
                 List<Span> spans1 = new List<Span>();
-                foreach(var r in ruleCollections)
+                foreach (var r in ruleCollections)
                 {
                     var r1 = r as Lexer.LexerRules.RuleCollectionRule;
                     if (r1.Evaluate(input1))
@@ -807,7 +1052,7 @@ namespace LexerParser
             repeatSpans = repeatSpans.OrderBy(x => x.Rule.RuleName).ThenBy(x => x.Start).ToList();
             List<Span> contiguousSpans = new List<Span>();
             List<List<Span>> contiguousStep = new List<List<Span>>();
-            for(int i=0; i<repeatSpans.Count; i++)
+            for (int i = 0; i < repeatSpans.Count; i++)
             {
                 int curIdx = i;
                 var first = repeatSpans[i];
@@ -815,13 +1060,13 @@ namespace LexerParser
                 spansContig1.Add(first);
                 int firstStart = first.Start;
                 int lastStart = firstStart;
-                for(int ii=i+1; ii < repeatSpans.Count; ii++)
+                for (int ii = i + 1; ii < repeatSpans.Count; ii++)
                 {
                     var current = repeatSpans[ii];
                     int curStart = current.Start;
                     if (curStart != lastStart + 1) {
                         i = curIdx;
-                        break; 
+                        break;
                     }
                     if (current.Rule.RuleName != first.Rule.RuleName)
                     {
@@ -834,12 +1079,17 @@ namespace LexerParser
                 }
                 contiguousStep.Add(spansContig1);
             }
-            foreach(var contig in contiguousStep.Where(x => x.Count > 1))
+            List<Span>[] contig1 = contiguousStep.Where(x => x.Count > 1).ToArray();
+            //foreach(var contig in contiguousStep.Where(x => x.Count > 1))
+            for (int i = 0; i < contig1.Length; i++)
             {
+                List<Span> contig = contig1[i];
                 int min = contig.Min(x => x.Start);
                 StringBuilder sb = new StringBuilder();
-                foreach(var c in contig)
+                //foreach(var c in contig)
+                for (int ii = 0; ii < contig.Count; ii++)
                 {
+                    Span c = contig[ii];
                     sb.Append(c.Text);
                 }
                 contiguousSpans.Add(new Span()
@@ -851,62 +1101,11 @@ namespace LexerParser
                 });
             }
 
-            //List<Span> allSpans = new List<Span>();
             spans.AddRange(charSpans);
             spans.AddRange(lookupSpans);
             spans.AddRange(collectionSpans);
-
             spans.AddRange(repeatSpans);
-
-            //foreach(var c in repeatSpans)
-            //{
-            //    List<Span> removeList = new List<Span>();
-            //    foreach (var cc in repeatSpans)
-            //    {
-            //        if (cc.Start >= c.Start && cc.End <= c.End && c != cc)
-            //        {
-            //            //if (cc.InnerSpans.Count > 0)
-            //            //{
-            //            //    foreach (var ccc in cc.InnerSpans)
-            //            //    {
-            //            //        c.InnerSpans.Add(ccc.Clone() as Lexer.Span);
-            //            //    }
-            //            //    c.InnerSpans.AddRange(cc.InnerSpans);
-            //            //}
-            //            c.InnerSpans.Add(cc);
-            //            removeList.Add(cc);
-            //        }
-            //    }
-            //    repeatSpans = repeatSpans.Except(removeList).ToList();
-            //}
-
-            //spans = OrganizeSpans(spans);
-
             spans.AddRange(stringSpans);
-
-            //foreach (var c in contiguousSpans)
-            //{
-            //    List<Span> removeList = new List<Span>();
-            //    foreach (var cc in spans)
-            //    {
-            //        if (cc.Start >= c.Start && cc.End <= c.End)
-            //        {
-            //            //if (cc.InnerSpans.Count > 0)
-            //            //{
-            //            //    foreach (var ccc in cc.InnerSpans)
-            //            //    {
-            //            //        c.InnerSpans.Add(ccc.Clone() as Lexer.Span);
-            //            //    }
-            //            //    c.InnerSpans.AddRange(cc.InnerSpans);
-            //            //}
-            //            c.InnerSpans.Add(cc);
-            //            removeList.Add(cc);
-            //        }
-            //    }
-            //    spans = spans.Except(removeList).ToList();
-            //}
-
-            //spans.AddRange(allSpans);
             spans.AddRange(contiguousSpans);
 
             spans = spans.OrderByDescending(x => x.Length).OrderBy(x => x.Start).ThenByDescending(x => x.Rule.Ordinal).ToList();
@@ -928,9 +1127,9 @@ namespace LexerParser
                             x.end <= current.end &&
                             //current.x.Rule.RuleName == x.x.Rule.RuleName
                             current.x.Rule.RuleName.Equals(x.x.Rule.RuleName));
-                            //current.x.Rule.RuleName.Equals(x.x.Rule.RuleName, StringComparison.Ordinal)
-                            //);
-                            //current.x.Rule.RuleName.Equals(x.x.Rule.RuleName));
+                        //current.x.Rule.RuleName.Equals(x.x.Rule.RuleName, StringComparison.Ordinal)
+                        //);
+                        //current.x.Rule.RuleName.Equals(x.x.Rule.RuleName));
                         repeat_idx++;
                     }
                 }
@@ -1164,7 +1363,7 @@ namespace LexerParser
                 results.Add(span1);
                 //spans = spans.Except(removeSpans).ToList();
                 int[] removeIndexes1 = removeIndexes.OrderByDescending(x => x).ToArray();
-                for (int i=0;i<removeIndexes1.Length;i++)
+                for (int i = 0; i < removeIndexes1.Length; i++)
                 {
                     spans.RemoveAt(removeIndexes1[i]);
                 }
@@ -1227,8 +1426,8 @@ namespace LexerParser
             List<Span> output = new List<Span>();
             int line = 0;
             int spanEnd = 0;
-            Span lastSpan = null;
-            foreach(var data in input)
+            //Span lastSpan = null;
+            foreach (var data in input)
             {
                 if (data.Line != line)
                 {
@@ -1249,7 +1448,7 @@ namespace LexerParser
 
                 int curStart = data.Data.Start;
                 data.Data.Start = spanEnd;
-                foreach(var item in data.Data.InnerSpans)
+                foreach (var item in data.Data.InnerSpans)
                 {
                     int min = item.Start - curStart;
                     item.Start = spanEnd + min;
@@ -1258,6 +1457,45 @@ namespace LexerParser
                 output.Add(data.Data);
             }
             return output;
+        }
+        public List<LexerResult.ResultPartition> OrganizePartitions(List<Span> spans, int partitionSize = 300)
+        {
+            List<LexerResult.ResultPartition> partitions = new List<LexerResult.ResultPartition>();
+            bool done = false;
+            int recordsProcessed = 0;
+            while(!done)
+            {
+                int recordsNeeded = 0;
+                if (recordsProcessed + partitionSize > spans.Count)
+                {
+                    recordsNeeded = spans.Count - recordsProcessed;
+                    done = true;
+                }
+                else
+                {
+                    recordsNeeded = partitionSize;
+                }
+                int recordsNeededEnd = recordsProcessed + recordsNeeded;
+                int min = Int32.MaxValue;
+                int max = Int32.MinValue;
+                List<Span> partition = new List<Span>();
+                for(int i=recordsProcessed;i<recordsNeededEnd;i++)
+                {
+                    Span span = spans[i];
+                    min = Math.Min(span.Start, min);
+                    max = Math.Max(span.End, max);
+                    partition.Add(span);
+                }
+                recordsProcessed += recordsNeeded;
+                LexerResult.ResultPartition resultPartition = new LexerResult.ResultPartition()
+                {
+                    Spans = partition,
+                    Maximum = max,
+                    Minimum = min
+                };
+                partitions.Add(resultPartition);
+            }
+            return partitions;
         }
     }
 }
