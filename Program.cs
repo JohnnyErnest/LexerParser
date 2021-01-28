@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using LexerParser;
 using Newtonsoft.Json;
@@ -23,17 +24,21 @@ namespace LexerParser1
                 Lexer lexerA = new Lexer(defaultConfiguration, userConfiguration);
                 Parser parserA = new Parser(lexerA, userConfiguration);
                 string htmlGrammarA = @"
-                htmlIdentifier = letter, { letter | digit | hyphen | underscore };
-                htmlAttribute = whitespaces, htmlIdentifier, { {whitespaces}, ""="", {whitespaces}, ebnfTerminalDoubleQuote };
-                htmlTagName = htmlIdentifier;
-                htmlOpenTag = ""<"", htmlTagName, { htmlAttribute }, [whitespaces], "">"";
-                htmlOpenAndCloseTag = {whitespaces}, ""<"", htmlTagName, { htmlAttribute }, {whitespaces}, ""/>"", {whitespaces};
-                htmlCloseTag = ""</"", htmlTagName, "">"";
-                htmlInnerTagText = %% letters|spaces|digits|whitespaces|period|hyphen|colon|semicolon|comma|ampersand|asterisk|doubleQuote|quote|forwardSlash|backSlash|underscore|equals|parenthesisOpen|parenthesisClose|bracketOpen|bracketClose|braceOpen|braceClose|pipe|atSign %%;
-                htmlTag = {whitespaces}, htmlOpenTag, {htmlInnerTagText}, { htmlTag | htmlOpenAndCloseTag }, {htmlInnerTagText}, htmlCloseTag, {whitespaces};
-                htmlTagNoInnerTag = htmlOpenTag, {htmlInnerTagText}, htmlCloseTag;                
-                htmlTagSearch = htmlOpenTag|htmlCloseTag|htmlOpenAndCloseTag;";
+                    htmlIdentifier = letter, { letter | digit | hyphen | underscore };
+                    htmlAttribute = whitespaces, htmlIdentifier, { {whitespaces}, ""="", {whitespaces}, ebnfTerminalDoubleQuote };
+                    htmlTagName = htmlIdentifier;
+                    htmlOpenTag = ""<"", htmlTagName, { htmlAttribute }, [whitespaces], "">"";
+                    htmlOpenAndCloseTag = {whitespaces}, ""<"", htmlTagName, { htmlAttribute }, {whitespaces}, ""/>"", {whitespaces};
+                    htmlCloseTag = ""</"", htmlTagName, "">"";
+                    htmlInnerTagText = %% letters|spaces|digits|whitespaces|period|hyphen|colon|semicolon|comma|ampersand|asterisk|doubleQuote|quote|forwardSlash|backSlash|underscore|equals|parenthesisOpen|parenthesisClose|bracketOpen|bracketClose|braceOpen|braceClose|pipe|atSign %%;
+                    htmlComment = ""<!--"", {whitespaces}, {letters|digits|period|whitespaces}, {whitespaces}, ""-->"";
+                    htmlTag = {whitespaces|htmlComment}, htmlOpenTag, {htmlComment|htmlInnerTagText}, { htmlComment | htmlTag | htmlOpenAndCloseTag }, {htmlComment | htmlInnerTagText}, htmlCloseTag, {whitespaces|htmlComment};
+                    htmlTagNoInnerTag = htmlOpenTag, {htmlInnerTagText}, htmlCloseTag;
+                    htmlTagSearch = htmlOpenTag|htmlCloseTag|htmlOpenAndCloseTag;";
                 parserA.AddEBNFGrammar(htmlGrammarA.Split(new string[] { Environment.NewLine }, StringSplitOptions.RemoveEmptyEntries));
+
+                //parserA.InputLexer.BuildTokenLookupMap();
+                //parserA.BuildAllSequenceSectionTokenLookups();
 
                 string text1 = File.ReadAllText($"Samples/index.html");
                 //System.Diagnostics.Stopwatch watch = new System.Diagnostics.Stopwatch();
@@ -41,97 +46,95 @@ namespace LexerParser1
                 //watch.Start();
                 var search = text1.Split(new string[] { Environment.NewLine, "\r", "\n" }, StringSplitOptions.RemoveEmptyEntries);
                 var lexer1 = parserA.InputLexer.GetSpans(search);
-                var spans = parserA.InputLexer.TransposeSpans(lexer1.CollectionInnerSpans);
-                var parseResult = parserA.Parse(spans, sequenceName: "htmlTag", showOnConsole: false);
+                //var spans = parserA.InputLexer.TransposeSpans(lexer1.CollectionInnerSpans);
+                //parserA.BuildAllTokensForLexer(spans);
+                parserA.InputSize = text1.Replace("\r", "").Replace("\n", "").Length;
+                parserA.ReportProgress += ParserA_ReportProgress;
+                var parseResult = parserA.Parse(lexer1, sequenceName: "htmlTag", showOnConsole: false);
 
-                Console.WriteLine("Matched: " + parseResult.Matched);
                 return parseResult;
             });
 
+            //t.Wait();
+            //Console.WriteLine("Matched: " + t.Result.Matched);
 
             Lexer lexer = new Lexer(defaultConfiguration, userConfiguration);
             Parser parser = new Parser(lexer, userConfiguration);
 
-            string someRule = "searchRule = 'God ', letters;"; // <- Add repetition for sequences/tokens
-            parser.AddEBNFRule(someRule);
-            string bibleText = @"
-            1 In the beginning God created the heaven and the earth. 
-            2 And the earth was without form, and void; and darkness was upon the face of the deep. And the Spirit of God moved upon the face of the waters.
-            The First Day: Light
-            3 And God said, Let there be light: and there was light. 
-            4 And God saw the light, that it was good: and God divided the light from the darkness. 
-            5 And God called the light Day, and the darkness he called Night. And the evening and the morning were the first day.
-            The Second Day: Firmament
-            6 And God said, Let there be a firmament in the midst of the waters, and let it divide the waters from the waters. 
-            7 And God made the firmament, and divided the waters which were under the firmament from the waters which were above the firmament: and it was so.";
-            var search1 = parser.Search(bibleText, lexer, sequenceName: "searchRule");
-            foreach (var item in search1.Results)
+            Task t1 = Task.Run(() =>
             {
-                System.Diagnostics.Debug.WriteLine(item.InnerResultsText);
-            }
+                string someRule = "searchRule = 'God ', letters;"; // <- Add repetition for sequences/tokens
+                parser.AddEBNFRule(someRule);
+                string bibleText = @"
+                    1 In the beginning God created the heaven and the earth. 
+                    2 And the earth was without form, and void; and darkness was upon the face of the deep. And the Spirit of God moved upon the face of the waters.
+                    The First Day: Light
+                    3 And God said, Let there be light: and there was light. 
+                    4 And God saw the light, that it was good: and God divided the light from the darkness. 
+                    5 And God called the light Day, and the darkness he called Night. And the evening and the morning were the first day.
+                    The Second Day: Firmament
+                    6 And God said, Let there be a firmament in the midst of the waters, and let it divide the waters from the waters. 
+                    7 And God made the firmament, and divided the waters which were under the firmament from the waters which were above the firmament: and it was so.";
+                var search1 = parser.Search(bibleText, lexer, sequenceName: "searchRule");
+                foreach (var item in search1.Results)
+                {
+                    System.Diagnostics.Debug.WriteLine(item.InnerResultsText);
+                }
+            });
 
             Console.WriteLine("Adding grammar rules for SQL");
             string sqlGrammar = @"
-            sqlIdentifier = [underscore], letters, { letters|hyphen|underscore }, [digits];
-            sqlAlias = [whitespaces], ##'as', whitespaces, sqlIdentifier, [whitespaces];
-            sqlIdentifierListPart = [whitespaces], comma, [whitespaces], sqlIdentifier, [whitespace, sqlAlias], [whitespaces];
-            sqlIdentifierList = [whitespaces], sqlIdentifier, [whitespaces, sqlAlias], [whitespaces], {sqlIdentifierListPart};
-            sqlSelect = ##'select', sqlIdentifierList, ##'from', sqlIdentifierList;";
+                sqlIdentifier = [underscore], letters, { letters|hyphen|underscore }, [digits];
+                sqlAlias = [whitespaces], ##'as', [whitespaces], sqlIdentifier, [whitespaces];
+                sqlIdentifierListPart = [whitespaces], comma, [whitespaces], sqlIdentifier, [sqlAlias], [whitespaces];
+                sqlIdentifierList = [whitespaces], sqlIdentifier, [whitespaces, sqlAlias], [whitespaces], {sqlIdentifierListPart};
+                sqlSelect = ##'select', sqlIdentifierList, ##'from', sqlIdentifierList;";
             parser.AddEBNFGrammar(sqlGrammar.Split(new string[] { Environment.NewLine }, StringSplitOptions.RemoveEmptyEntries));
 
             Console.WriteLine("Adding grammar rules for HTML");
-            //string htmlGrammar = @"
-            //    htmlIdentifier = letter, { letter | digit | hyphen | underscore };
-            //    htmlAttribute = whitespaces, htmlIdentifier, { [whitespaces], ""="", [whitespaces], ebnfTerminalDoubleQuote };
-            //    htmlTagName = htmlIdentifier;
-            //    htmlOpenTag = ""<"", htmlTagName, { htmlAttribute }, [whitespaces], "">"";
-            //    htmlCloseTag = ""</"", htmlTagName, "">"";
-            //    htmlInnerTagText = %% letters|spaces|digits|whitespaces|semicolon|underscore|equals %%;
-            //    htmlTag = htmlOpenTag, {htmlInnerTagText}, {htmlTag}, {htmlInnerTagText}, htmlCloseTag;
-            //    ";
             string htmlGrammar = @"
-                            htmlIdentifier = letter, { letter | digit | hyphen | underscore };
-                            htmlAttribute = whitespaces, htmlIdentifier, { [whitespaces], ""="", [whitespaces], ebnfTerminalDoubleQuote };
-                            htmlTagName = htmlIdentifier;
-                            htmlOpenTag = ""<"", htmlTagName, { htmlAttribute }, [whitespaces], "">"";
-                            htmlOpenAndCloseTag = ""<"", htmlTagName, { htmlAttribute }, [whitespaces], ""/>"";
-                            htmlOpenTag1 = ""&lt;"", htmlTagName, { htmlAttribute }, [whitespaces], ""&gt;"";
-                            htmlCloseTag = ""</"", htmlTagName, "">"";
-                            htmlCloseTag1 = ""&lt;/"", htmlTagName, ""&gt;"";
-                            htmlInnerTagText = %% letters|spaces|digits|whitespaces|semicolon|underscore|equals %%;
-                            htmlTag = htmlOpenTag, {htmlInnerTagText}, {htmlTag}, {htmlInnerTagText}, htmlCloseTag;
-                            htmlTagNoInnerTag = htmlOpenTag, {htmlInnerTagText}, htmlCloseTag;
-                            htmlTagSearch = htmlOpenTag|htmlCloseTag|htmlOpenAndCloseTag;";
+                htmlIdentifier = letter, { letter | digit | hyphen | underscore };
+                htmlAttribute = whitespaces, htmlIdentifier, { [whitespaces], ""="", [whitespaces], ebnfTerminalDoubleQuote };
+                htmlTagName = htmlIdentifier;
+                htmlOpenTag = ""<"", htmlTagName, { htmlAttribute }, [whitespaces], "">"";
+                htmlOpenAndCloseTag = ""<"", htmlTagName, { htmlAttribute }, [whitespaces], ""/>"";
+                htmlOpenTag1 = ""&lt;"", htmlTagName, { htmlAttribute }, [whitespaces], ""&gt;"";
+                htmlCloseTag = ""</"", htmlTagName, "">"";
+                htmlCloseTag1 = ""&lt;/"", htmlTagName, ""&gt;"";
+                htmlInnerTagText = %% letters|spaces|digits|whitespaces|semicolon|underscore|equals %%;
+                htmlTag = htmlOpenTag, {htmlInnerTagText}, {htmlTag}, {htmlInnerTagText}, htmlCloseTag;
+                htmlTagNoInnerTag = htmlOpenTag, {htmlInnerTagText}, htmlCloseTag;
+                htmlTagSearch = htmlOpenTag|htmlCloseTag|htmlOpenAndCloseTag;";
             parser.AddEBNFGrammar(htmlGrammar.Split(new string[] { Environment.NewLine }, StringSplitOptions.RemoveEmptyEntries));
 
             Console.WriteLine("Adding grammar rules for CSS");
             string cssGrammar = @"
-                            cssSelectorName = letters, { letters | hyphen | digits };
-                            cssClass = period, cssSelectorName;
-                            cssSubClass = cssClass, cssClass;
-                            cssClassDescendant = cssClass, whitespace, cssClass;
-                            cssID = asterisk;
-                            cssID = hashMark, cssSelectorName;
-                            cssElement = cssSelectorName;
-                            cssElementWithClass = cssElement, cssClass;
-                            cssElementList = cssElement, %% comma, [whitespace], cssElement %%;
-                            cssElementInsideList = cssElement, %% whitespace, cssElement %%;
-                            cssElementDescendantList = cssElement, %% [whitespace], greaterThan, [whitespace], cssElement %%;
-                            cssElementPlusList = cssElement, %% [whitespace], plus, [whitespace], cssElement %%;
-                            cssElementTildeList = cssElement, %% [whitespace], tilde, [whitespace], cssElement %%;
-                            cssSelectors = cssSelectorName | cssClass | cssSubClass | cssClassDescendant | cssAll | cssID | cssElement | cssElementWithClass | cssElementList | cssElementInsideList | cssElementDescendantList | cssElementPlusList | cssElementTildeList;
-                            cssString = { letters | digits | parenthesisOpen | parenthesisClose | hashMark | colon | forwardSlash | period | comma | strEscapedQuote | strEscapedDoubleQuote };
-                            cssStringDblQuote = doubleQuote, cssString, doubleQuote;
-                            cssStringQuote = quote, cssString, quote;
-                            cssStringLiteral = cssStringDblQuote|cssStringQuote;
-                            cssColorIdentifier = hashMark, ((hexadecimal, hexadecimal, hexadecimal, hexadecimal, hexadecimal, hexadecimal)|(hexadecimal, hexadecimal, hexadecimal)) ;
-                            cssValueLiteral = letters|digits;
-                            cssLiteral = cssStringLiteral|cssValueLiteral|cssColorIdentifier;
-                            cssPropertyName = letters, { letters|hyphen|digits };
-                            cssProperty = [whitespaces], cssPropertyName, [whitespaces], colon, [whitespaces], cssLiteral, [whitespaces], semicolon, [whitespaces];
-                            cssCodeBlock = [whitespaces], braceOpen, [whitespaces], %% cssProperty, [whitespaces] %%, braceClose;
-                            cssStatement = cssSelectors, %% whitespaces %%, cssCodeBlock;
-                            cssStatements = [whitespaces], %% cssStatement, [whitespaces] %%;";
+                cssSelectorName = letters, { letters | hyphen | digits };
+                cssClass = period, cssSelectorName;
+                cssSubClass = cssClass, cssClass;
+                cssClassDescendant = cssClass, whitespace, cssClass;
+                cssID = asterisk;
+                cssID = hashMark, cssSelectorName;
+                cssElement = cssSelectorName;
+                cssElementWithClass = cssElement, cssClass;
+                cssElementList = cssElement, %% comma, [whitespace], cssElement %%;
+                cssElementInsideList = cssElement, %% whitespace, cssElement %%;
+                cssElementDescendantList = cssElement, %% [whitespace], greaterThan, [whitespace], cssElement %%;
+                cssElementPlusList = cssElement, %% [whitespace], plus, [whitespace], cssElement %%;
+                cssElementTildeList = cssElement, %% [whitespace], tilde, [whitespace], cssElement %%;
+                cssSelectors = cssSelectorName | cssClass | cssSubClass | cssClassDescendant | cssAll | cssID | cssElement | cssElementWithClass | cssElementList | cssElementInsideList | cssElementDescendantList | cssElementPlusList | cssElementTildeList;
+                cssString = { letters | digits | parenthesisOpen | parenthesisClose | hashMark | colon | forwardSlash | period | comma | strEscapedQuote | strEscapedDoubleQuote };
+                cssStringDblQuote = doubleQuote, cssString, doubleQuote;
+                cssStringQuote = quote, cssString, quote;
+                cssStringLiteral = cssStringDblQuote|cssStringQuote;
+                cssColorIdentifier = hashMark, ((hexadecimal, hexadecimal, hexadecimal, hexadecimal, hexadecimal, hexadecimal)|(hexadecimal, hexadecimal, hexadecimal)) ;
+                cssValueLiteral = letters|digits;
+                cssLiteral = cssStringLiteral|cssValueLiteral|cssColorIdentifier;
+                cssPropertyName = letters, { letters|hyphen|digits };
+                cssProperty = [whitespaces], cssPropertyName, [whitespaces], colon, [whitespaces], cssLiteral, [whitespaces], semicolon, [whitespaces];
+                cssCodeBlock = [whitespaces], braceOpen, [whitespaces], %% cssProperty, [whitespaces] %%, braceClose;
+                cssStatement = cssSelectors, %% whitespaces %%, cssCodeBlock;
+                cssStatements = [whitespaces], %% cssStatement, [whitespaces] %%;";
             parser.AddEBNFGrammar(cssGrammar.Split(new string[] { Environment.NewLine }, StringSplitOptions.RemoveEmptyEntries));
 
             Console.WriteLine("Adding grammar rules for JS");
@@ -140,30 +143,30 @@ namespace LexerParser1
 
             Console.WriteLine("Adding grammar rules for Math Equations");
             string mathGrammar = @"
-                            mathNegative = hyphen;
-                            mathDecimal = period;
-                            mathNum = [mathNegative], digits, [ mathDecimal, digits ];
-                            mathAdd = plus;
-                            mathSubtract = hyphen;
-                            mathMultiply = asterisk;
-                            mathDivide = forwardSlash;
-                            mathFunction = 'sqrt'|'cos'|'sin'|'tan';
-                            mathParentheses = [mathFunction], parenthesisOpen, &mathExpr, parenthesisClose;
-                            mathFactor = (mathNum | mathParentheses);
-                            mathTerm = mathFactor, { (mathMultiply, mathFactor) | (mathDivide, mathFactor) };
-                            mathExpr = mathTerm, { (mathAdd, mathTerm) | (mathSubtract, mathTerm) };";
+                mathNegative = hyphen;
+                mathDecimal = period;
+                mathNum = [mathNegative], digits, [ mathDecimal, digits ];
+                mathAdd = plus;
+                mathSubtract = hyphen;
+                mathMultiply = asterisk;
+                mathDivide = forwardSlash;
+                mathFunction = 'sqrt'|'cos'|'sin'|'tan';
+                mathParentheses = [mathFunction], parenthesisOpen, &mathExpr, parenthesisClose;
+                mathFactor = (mathNum | mathParentheses);
+                mathTerm = mathFactor, { (mathMultiply, mathFactor) | (mathDivide, mathFactor) };
+                mathExpr = mathTerm, { (mathAdd, mathTerm) | (mathSubtract, mathTerm) };";
             parser.AddEBNFGrammar(mathGrammar.Split(new string[] { Environment.NewLine }, StringSplitOptions.RemoveEmptyEntries));
 
             Console.WriteLine("Adding grammar rules for Pascal");
             string pascalGrammar = @"
-            pascalString = ebnfTerminal;
-            pascalLiteral = number|pascalString|identifier;
-            pascalAssignment = [whitespaces], identifier, [whitespaces], ':=', [whitespaces], pascalLiteral, semicolon;
-            pascalRule = pascalAssignment;
-            pascalRules = [whitespaces], ##'PROGRAM', whitespaces, ##'BEGIN', whitespaces, { pascalRule }, [whitespaces], ##'END', semicolon, [whitespaces];";
+                pascalString = ebnfTerminal;
+                pascalLiteral = number|pascalString|identifier;
+                pascalAssignment = [whitespaces], identifier, [whitespaces], ':=', [whitespaces], pascalLiteral, semicolon;
+                pascalRule = pascalAssignment;
+                pascalRules = [whitespaces], ##'PROGRAM', whitespaces, ##'BEGIN', whitespaces, { pascalRule }, [whitespaces], ##'END', semicolon, [whitespaces];";
             parser.AddEBNFGrammar(pascalGrammar.Split(new string[] { Environment.NewLine }, StringSplitOptions.RemoveEmptyEntries));
 
-            string inputSql = "Select column1, column2 as c2 from _yay";
+            string inputSql = "Select column1, column2 as Hello from _yay";
             var resultSql = parser.Parse(inputSql, sequenceName: "sqlSelect", showOnConsole: false);
             Console.WriteLine();
             if (resultSql.Matched)
@@ -445,6 +448,9 @@ namespace LexerParser1
             string inputPascal = "PROGRAM BEGIN a:=5; b1:='Hurrooo'; b2:=\"Yay\"; b2 := a; END;";
             var resultPascal = parser.Parse(inputPascal, sequenceName: "pascalRules");
 
+            Console.WriteLine();
+            CanReport = true;
+
             //string input1 = string.Join(Environment.NewLine, search);
             //Console.WriteLine(input1.Substring(0, parserA.MaxParseIndex));
 
@@ -459,7 +465,23 @@ namespace LexerParser1
 
             //Task.WaitAll(lexer1.OrganizableSpans);
             t.Wait();
-            Console.WriteLine("Matched:"+t.Result.Matched);
+            Console.WriteLine("Matched: " + t.Result.Matched);
+            HtmlConsoleWalker htmlConsoleWalker = new HtmlConsoleWalker(t.Result.Results[0]);
+            Console.ForegroundColor = ConsoleColor.Gray;
+        }
+
+        static int PercentDone = 0;
+        static bool CanReport = false;
+        private static void ParserA_ReportProgress(object sender, Parser.ReportProgressArgs e)
+        {
+            if (CanReport)
+            {
+                if ((int)e.Percent / 30 != PercentDone)
+                {
+                    Console.WriteLine($"Parsing Document %: {e.Percent.ToString("N2")}, {e.InputPosition}/{e.InputSize}");
+                    PercentDone = (int)e.Percent / 30;
+                }
+            }
         }
     }
 }
