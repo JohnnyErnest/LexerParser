@@ -18,6 +18,37 @@ namespace LexerParser1
             string defaultConfiguration = $"Configuration/Default.json";
             string userConfiguration = $"Configuration/ParserEBNF.json";
 
+            Task<Parser.Result> t = Task.Run(() =>
+            {
+                Lexer lexerA = new Lexer(defaultConfiguration, userConfiguration);
+                Parser parserA = new Parser(lexerA, userConfiguration);
+                string htmlGrammarA = @"
+                htmlIdentifier = letter, { letter | digit | hyphen | underscore };
+                htmlAttribute = whitespaces, htmlIdentifier, { {whitespaces}, ""="", {whitespaces}, ebnfTerminalDoubleQuote };
+                htmlTagName = htmlIdentifier;
+                htmlOpenTag = ""<"", htmlTagName, { htmlAttribute }, [whitespaces], "">"";
+                htmlOpenAndCloseTag = {whitespaces}, ""<"", htmlTagName, { htmlAttribute }, {whitespaces}, ""/>"", {whitespaces};
+                htmlCloseTag = ""</"", htmlTagName, "">"";
+                htmlInnerTagText = %% letters|spaces|digits|whitespaces|period|hyphen|colon|semicolon|comma|ampersand|asterisk|doubleQuote|quote|forwardSlash|backSlash|underscore|equals|parenthesisOpen|parenthesisClose|bracketOpen|bracketClose|braceOpen|braceClose|pipe|atSign %%;
+                htmlTag = {whitespaces}, htmlOpenTag, {htmlInnerTagText}, { htmlTag | htmlOpenAndCloseTag }, {htmlInnerTagText}, htmlCloseTag, {whitespaces};
+                htmlTagNoInnerTag = htmlOpenTag, {htmlInnerTagText}, htmlCloseTag;                
+                htmlTagSearch = htmlOpenTag|htmlCloseTag|htmlOpenAndCloseTag;";
+                parserA.AddEBNFGrammar(htmlGrammarA.Split(new string[] { Environment.NewLine }, StringSplitOptions.RemoveEmptyEntries));
+
+                string text1 = File.ReadAllText($"Samples/index.html");
+                //System.Diagnostics.Stopwatch watch = new System.Diagnostics.Stopwatch();
+
+                //watch.Start();
+                var search = text1.Split(new string[] { Environment.NewLine, "\r", "\n" }, StringSplitOptions.RemoveEmptyEntries);
+                var lexer1 = parserA.InputLexer.GetSpans(search);
+                var spans = parserA.InputLexer.TransposeSpans(lexer1.CollectionInnerSpans);
+                var parseResult = parserA.Parse(spans, sequenceName: "htmlTag", showOnConsole: false);
+
+                Console.WriteLine("Matched: " + parseResult.Matched);
+                return parseResult;
+            });
+
+
             Lexer lexer = new Lexer(defaultConfiguration, userConfiguration);
             Parser parser = new Parser(lexer, userConfiguration);
 
@@ -414,30 +445,21 @@ namespace LexerParser1
             string inputPascal = "PROGRAM BEGIN a:=5; b1:='Hurrooo'; b2:=\"Yay\"; b2 := a; END;";
             var resultPascal = parser.Parse(inputPascal, sequenceName: "pascalRules");
 
-            Lexer lexerA = new Lexer(defaultConfiguration, userConfiguration);
-            Parser parserA = new Parser(lexerA, userConfiguration);
-            string htmlGrammarA = @"
-                htmlIdentifier = letter, { letter | digit | hyphen | underscore };
-                htmlAttribute = whitespaces, htmlIdentifier, { [whitespaces], ""="", [whitespaces], ebnfTerminalDoubleQuote };
-                htmlTagName = htmlIdentifier;
-                htmlOpenTag = ""<"", htmlTagName, { htmlAttribute }, [whitespaces], "">"";
-                htmlOpenAndCloseTag = ""<"", htmlTagName, { htmlAttribute }, [whitespaces], ""/>"";
-                htmlOpenTag1 = ""&lt;"", htmlTagName, { htmlAttribute }, [whitespaces], ""&gt;"";
-                htmlCloseTag = ""</"", htmlTagName, "">"";
-                htmlCloseTag1 = ""&lt;/"", htmlTagName, ""&gt;"";
-                htmlInnerTagText = %% letters|spaces|digits|whitespaces|semicolon|underscore|equals %%;
-                htmlTag = htmlOpenTag, {htmlInnerTagText}, {htmlTag}, {htmlInnerTagText}, htmlCloseTag;
-                htmlTagNoInnerTag = htmlOpenTag, {htmlInnerTagText}, htmlCloseTag;
-                htmlTagSearch = htmlOpenTag|htmlCloseTag|htmlOpenAndCloseTag;";
-            parserA.AddEBNFGrammar(htmlGrammarA.Split(new string[] { Environment.NewLine }, StringSplitOptions.RemoveEmptyEntries));
+            //string input1 = string.Join(Environment.NewLine, search);
+            //Console.WriteLine(input1.Substring(0, parserA.MaxParseIndex));
 
-            string text1 = File.ReadAllText($"Samples/index.html");
-            var lexer1 = parserA.InputLexer.GetSpans(text1);
+            //watch.Stop();
+            //(long, long, TimeSpan) elapsed = (watch.ElapsedMilliseconds, watch.ElapsedTicks, watch.Elapsed);
+            //Console.WriteLine(elapsed.Item1);
 
-            var search = text1.Split(new string[] { Environment.NewLine, "\r", "\n" }, StringSplitOptions.RemoveEmptyEntries);
-            var resultsSearch = parserA.Search(search, sequenceName: "htmlTagSearch");
+            //LexerResultWalker lWalker = new LexerResultWalker(lexer1);
 
-            Task.WaitAll(lexer1.OrganizableSpans);
+            //string search = "<script></script><do><you><like></pina><collada>";
+            //var resultsSearch = parserA.Search(search, sequenceName: "htmlTagSearch", showOnConsole: false);
+
+            //Task.WaitAll(lexer1.OrganizableSpans);
+            t.Wait();
+            Console.WriteLine("Matched:"+t.Result.Matched);
         }
     }
 }
