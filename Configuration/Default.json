@@ -75,11 +75,11 @@
     "digit": "char_in:0123456789",
     "hexadecimal": "char_in:0123456789ABCDEFabcdef",
     "quoting": "char_in:\"'`",
-    "special": "char_in:~\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~",
-    "specialNonQuoting": "char_in:~#$%&()*+,-./:;<=>?@[\\]^_{|}~",
+    "special": "char_in:~\"#$%&'()*+,-./:;<=>?!@[\\]^_`{|}~",
+    "specialNonQuoting": "char_in:~#$%&()*+,-./:;<=>?!@[\\]^_{|}~",
     "enclosure": "char_in:()[]{}<>",
-    "specialNonEnclosure": "char_in:~\"#$%&'*+,-./:;=?@\\^_`|~",
-    "specialNonQuotingNonEnclosure": "char_in:~#$%&*+,-./:;=?@\\^_|~",
+    "specialNonEnclosure": "char_in:~\"#$%&'*+,-./:;=?!@\\^_`|~",
+    "specialNonQuotingNonEnclosure": "char_in:~#$%&*+,-./:;=?!@\\^_|~",
 
     "letter": [
       "rule:letterLowercase",
@@ -87,7 +87,7 @@
     ],
     "whitespace": [
       "rule:tab",
-      "rule:spaces",
+      "rule:space",
       "rule:carriageReturn",
       "rule:lineFeed"
     ],
