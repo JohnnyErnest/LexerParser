@@ -69,7 +69,6 @@ namespace LexerParser
                 {
                     return this.RuleName.GetHashCode();
                 }
-
             }
             public class CharInLexerRule : ILexerRule
             {
@@ -180,7 +179,8 @@ namespace LexerParser
                 }
                 public bool Evaluate(string input)
                 {
-                    return input.Equals(Token, StringComparison.Ordinal);
+                    //return input.Equals(Token, StringComparison.Ordinal);
+                    return input.Equals(Token);
                 }
                 public StringLexerRule(string ruleName, string input)
                 {
@@ -194,7 +194,8 @@ namespace LexerParser
                 }
                 public bool Evaluate(char input)
                 {
-                    return input.ToString().Equals(Token, StringComparison.Ordinal);
+                    return input.ToString().Equals(Token);
+                    //return input.ToString().Equals(Token, StringComparison.Ordinal);
                 }
                 public override bool Equals(object obj)
                 {
@@ -385,6 +386,10 @@ namespace LexerParser
             public string Text { get { return _Text; } set { _Text = value; Length = _Text.Length; } }
             public LexerRules.ILexerRule Rule { get; set; }
             public List<Span> InnerSpans { get; set; }
+            public bool IsBetween(int index)
+            {
+                return Start <= index && index < End;
+            }
             public object Clone()
             {
                 var span = new Span() { Text = this.Text, Start = this.Start, Rule = this.Rule };
@@ -398,19 +403,16 @@ namespace LexerParser
                 }
                 return span;
             }
-
             public override bool Equals(object obj)
             {
                 var o = (Span)obj;
                 if (o.Start == this.Start && o.Text == this.Text && o.Rule == this.Rule && o.InnerSpans.Count == this.InnerSpans.Count) return true;
                 return false;
             }
-
             public override int GetHashCode()
             {
                 return (this.Start, this.Text, this.Rule).GetHashCode();
             }
-
             public override string ToString()
             {
                 return $"[Start:{Start} Text:{Text}, Rule:{Rule.RuleName}/{Rule.RuleType}, End/Length:{End}/{Length}]";
@@ -424,6 +426,8 @@ namespace LexerParser
             public List<Span> Parsed1 { get; set; }
             public List<Span> ParsedOrganized { get; set; }
             public Task<List<Span>> OrganizableSpans { get; set; }
+            public List<LexerResult> CollectionInnerResults { get; set; } = new List<LexerResult>();
+            public List<(int Line, int Index, Span Data)> CollectionInnerSpans { get; set; } = new List<(int, int, Span)>();
         }
         public List<LexerRules.ILexerRule> Rules { get; set; }
         LexerRules.ILexerRule GetRule(string key, JToken token)
@@ -556,22 +560,34 @@ namespace LexerParser
             //var spans2 = ProcessText(input, removeInnerDupes: true);
             //var organized1 = OrganizeSpansNew(spans1.Item1);
             var organized1 = spans1.Item1;
+            //var organized2 = OrganizeSpans(organized1);
             
-            //organized1 = OrganizeSpans(spans1.Item1);
+            //var organized1 = OrganizeSpans(spans1.Item1);
 
             List<Span> newSpans = new List<Span>();
-            foreach(var item in spans1.Item1)
+            foreach(var item in organized1)
             {
-                newSpans.Add(item.Clone() as Span);
+                var node = item.Clone() as Span;
+                foreach (var item1 in node.InnerSpans)
+                {
+                    //item1.InnerSpans = new List<Span>();
+                    item1.InnerSpans.Clear();
+
+                    //var nodeInner = item1.Clone() as Span;
+                    //nodeInner.InnerSpans = new List<Span>();
+                    //newSpans.Add(nodeInner);
+                }
+                //node.InnerSpans.Clear();
+                newSpans.Add(node);
+                //item.InnerSpans = new List<Span>();
             }
 
-            //var organized2 = OrganizeSpans(spans1.Item1);
+            var organized2 = OrganizeSpans(newSpans);
 
+            //var organized2 = OrganizeSpans(spans1.Item1);
             //if (organized1.Count != organized2.Count)
             //{
-
             //}
-
 
             //if (spans.Item1.Count != spans2.Item1.Count)
             //{
@@ -597,7 +613,7 @@ namespace LexerParser
                 OrganizedSpans = organized1,
                 SingularSpans = null,
                 Parsed1 = newSpans,
-                ParsedOrganized = organized1,
+                ParsedOrganized = organized2,
                 OrganizableSpans = new Task<List<Span>>(() => { return OrganizeSpans(newSpans); })
             };
             result.OrganizableSpans.Start();
@@ -612,26 +628,83 @@ namespace LexerParser
             //};
             return result;
         }
+        public LexerResult GetSpans(string[] input, int maxSlidingWindow = -1)
+        {
+            LexerResult lexerResult = new LexerResult();
+            List<LexerResult> results = new List<LexerResult>();
+            foreach(string line in input)
+            {
+                var spans1 = ProcessTextNew(line, removeInnerDupes: false, maxSlidingWindow: maxSlidingWindow);
+                var organized1 = spans1.Item1;
+                var org1a = OrganizeSpans(organized1);
+                //List<Span> newSpans = new List<Span>();
+                //foreach (var item in organized1)
+                //{
+                //    var node = item.Clone() as Span;
+                //    foreach (var item1 in node.InnerSpans)
+                //    {
+                //        item1.InnerSpans.Clear();
+                //    }
+                //    newSpans.Add(node);
+                //}
+                //var organized2 = OrganizeSpans(newSpans);
+                var result = new LexerResult()
+                {
+                    RawSpans = organized1,
+                    OrganizedSpans = org1a,
+                    SingularSpans = null,
+                    //Parsed1 = newSpans,
+                    //ParsedOrganized = organized2,
+                    //OrganizableSpans = new Task<List<Span>>(() => { return OrganizeSpans(newSpans); })
+                };
+                //result.OrganizableSpans.Start();
+                results.Add(result);
+            }
+            List<(int Line, int Index, Span Data)> spans = new List<(int, int, Span)>();
+            int Line = 0;
+            foreach(var item in results)
+            {
+                int Index = 0;
+                foreach(var item1 in item.OrganizedSpans)
+                {
+                    spans.Add((Line, Index, item1));
+                    Index++;
+                }
+                Line++;
+            }
+            lexerResult.CollectionInnerResults = results;
+            lexerResult.CollectionInnerSpans = spans;
+            return lexerResult;
+        }
         public (List<Span>, List<Span>, List<Span>) ProcessTextNew(string input, bool removeInnerDupes = false, int maxSlidingWindow = -1)
         {
-            var charRules = Rules.Where(x => new[] { "Char", "CharIn" }.Contains(x.RuleType));
-            var stringRules = Rules.Where(x => new[] { "CaseInsensitiveString", "String" }.Contains(x.RuleType));
-            var lookupRules = Rules.Where(x => x.RuleType == "RuleLookup");
-            var ruleCollections = Rules.Where(x => x.RuleType == "RuleCollection");
-            var repeatRules = Rules.Where(x => x.RuleType == "RepeatRule");
+            var charRules = Rules.Where(x => new[] { "Char", "CharIn" }.Contains(x.RuleType)).ToArray();
+            var stringRules = Rules.Where(x => new[] { "CaseInsensitiveString", "String" }.Contains(x.RuleType)).ToArray();
+            var lookupRules = Rules.Where(x => x.RuleType == "RuleLookup").ToArray();
+            var ruleCollections = Rules.Where(x => x.RuleType == "RuleCollection").ToArray();
+            var repeatRules = Rules.Where(x => x.RuleType == "RepeatRule").ToArray();
 
             List<Span> spans = new List<Span>();
-            int idx = 0;
             Func<string, List<Span>> checkSingularRules1 = new Func<string, List<Span>>((input1) =>
             {
+                //int idx = 0;
                 List<Span> spans1 = new List<Span>();
-                foreach (var c in input1)
+                //foreach (var c in input1)
+                //{
+                //    foreach (var r in charRules)
+                //    {
+                //        if (r.Evaluate(c)) { spans1.Add(new Span() { Start = idx, Rule = r, Text = c.ToString(), InnerSpans = new List<Span>() }); }
+                //    }
+                //    idx++;
+                //}
+                for (int idx = 0; idx < input.Length; idx++)
                 {
-                    foreach (var r in charRules)
+                    char c = input[idx];
+                    for (int ii = 0; ii < charRules.Length; ii++)
                     {
+                        Lexer.LexerRules.ILexerRule r = charRules[ii];
                         if (r.Evaluate(c)) { spans1.Add(new Span() { Start = idx, Rule = r, Text = c.ToString(), InnerSpans = new List<Span>() }); }
                     }
-                    idx++;
                 }
                 return spans1;
             });
@@ -640,7 +713,7 @@ namespace LexerParser
                 List<Span> spans1 = new List<Span>();
                 foreach (var r in stringRules.Where(x => x.RuleType == "String"))
                 {
-                    if (input1.Contains(r.StringToken))
+                    if (input1.IndexOf(r.StringToken) > -1)
                     {
                         int idx1 = 0;
                         while (idx1 != -1)
@@ -676,8 +749,8 @@ namespace LexerParser
                 }
                 return spans1;
             });
-            List<Span> charSpans = checkSingularRules1(input).OrderBy(x => x.Start).ToList();
-            List<Span> stringSpans = checkSingularRules2(input).OrderByDescending(x => x.Length).ToList();
+            Span[] charSpans = checkSingularRules1(input).OrderBy(x => x.Start).ToArray();
+            Span[] stringSpans = checkSingularRules2(input).OrderByDescending(x => x.Length).ToArray();
 
             Func<string, int, List<Span>> checkLookupRules = new Func<string, int, List<Span>>((input1, idx1) => {
                 List<Span> spans1 = new List<Span>();
@@ -780,12 +853,36 @@ namespace LexerParser
 
             //List<Span> allSpans = new List<Span>();
             spans.AddRange(charSpans);
-            spans.AddRange(stringSpans);
             spans.AddRange(lookupSpans);
             spans.AddRange(collectionSpans);
+
             spans.AddRange(repeatSpans);
 
+            //foreach(var c in repeatSpans)
+            //{
+            //    List<Span> removeList = new List<Span>();
+            //    foreach (var cc in repeatSpans)
+            //    {
+            //        if (cc.Start >= c.Start && cc.End <= c.End && c != cc)
+            //        {
+            //            //if (cc.InnerSpans.Count > 0)
+            //            //{
+            //            //    foreach (var ccc in cc.InnerSpans)
+            //            //    {
+            //            //        c.InnerSpans.Add(ccc.Clone() as Lexer.Span);
+            //            //    }
+            //            //    c.InnerSpans.AddRange(cc.InnerSpans);
+            //            //}
+            //            c.InnerSpans.Add(cc);
+            //            removeList.Add(cc);
+            //        }
+            //    }
+            //    repeatSpans = repeatSpans.Except(removeList).ToList();
+            //}
+
             //spans = OrganizeSpans(spans);
+
+            spans.AddRange(stringSpans);
 
             //foreach (var c in contiguousSpans)
             //{
@@ -794,19 +891,19 @@ namespace LexerParser
             //    {
             //        if (cc.Start >= c.Start && cc.End <= c.End)
             //        {
-            //            if (cc.InnerSpans.Count > 0)
-            //            {
-            //                //foreach (var ccc in cc.InnerSpans)
-            //                //{
-            //                //    c.InnerSpans.Add(ccc.Clone() as Lexer.Span);
-            //                //}
-            //                //c.InnerSpans.AddRange(cc.InnerSpans);
-            //            }
-            //            c.InnerSpans.Add(cc.Clone() as Lexer.Span);
+            //            //if (cc.InnerSpans.Count > 0)
+            //            //{
+            //            //    foreach (var ccc in cc.InnerSpans)
+            //            //    {
+            //            //        c.InnerSpans.Add(ccc.Clone() as Lexer.Span);
+            //            //    }
+            //            //    c.InnerSpans.AddRange(cc.InnerSpans);
+            //            //}
+            //            c.InnerSpans.Add(cc);
             //            removeList.Add(cc);
             //        }
             //    }
-            //    //spans = spans.Except(removeList).ToList();
+            //    spans = spans.Except(removeList).ToList();
             //}
 
             //spans.AddRange(allSpans);
@@ -830,7 +927,10 @@ namespace LexerParser
                             x.start >= current.start &&
                             x.end <= current.end &&
                             //current.x.Rule.RuleName == x.x.Rule.RuleName
-                            current.x.Rule.RuleName.Equals(x.x.Rule.RuleName, StringComparison.Ordinal));
+                            current.x.Rule.RuleName.Equals(x.x.Rule.RuleName));
+                            //current.x.Rule.RuleName.Equals(x.x.Rule.RuleName, StringComparison.Ordinal)
+                            //);
+                            //current.x.Rule.RuleName.Equals(x.x.Rule.RuleName));
                         repeat_idx++;
                     }
                 }
@@ -900,7 +1000,9 @@ namespace LexerParser
                         repeat_list.RemoveAll(x => x != current &&
                             x.start >= current.start &&
                             x.end <= current.end &&
-                            current.x.Rule.RuleName.Equals(x.x.Rule.RuleName, StringComparison.Ordinal));
+                            current.x.Rule.RuleName.Equals(x.x.Rule.RuleName)
+                            //current.x.Rule.RuleName.Equals(x.x.Rule.RuleName)
+                            );
                         //repeat_list.RemoveAll(x => x != current && 
                         //    x.start >= current.start && 
                         //    x.end <= current.end && 
@@ -1051,6 +1153,10 @@ namespace LexerParser
                     if (span2.Start >= span1.Start && span2.End <= span1.End)
                     {
                         span1.InnerSpans.Add(span2);
+                        if (span2.InnerSpans != null)
+                        {
+                            span1.InnerSpans.AddRange(span2.InnerSpans);
+                        }
                         removeIndexes.Add(i);
                         //removeSpans.Add(span2);
                     }
@@ -1079,7 +1185,6 @@ namespace LexerParser
             }
             return spans;
         }
-
         public List<Span> OrganizeSpansNew(List<Span> spans)
         {
             spans = spans.OrderByDescending(x => x.Length).ThenByDescending(x => x.Rule.Ordinal).ThenBy(x => x.Start).ToList();
@@ -1117,6 +1222,42 @@ namespace LexerParser
             }
             return spans;
         }
+        public List<Span> TransposeSpans(List<(int Line, int Index, Span Data)> input)
+        {
+            List<Span> output = new List<Span>();
+            int line = 0;
+            int spanEnd = 0;
+            Span lastSpan = null;
+            foreach(var data in input)
+            {
+                if (data.Line != line)
+                {
+                    //Span spanCR = new Span() { InnerSpans = new List<Span>(), Start = spanEnd, Text = "\r", Rule = new Lexer.LexerRules.CharLexerRule("carriageReturn", '\r') { Token = '\r', RuleName = "carriageReturn" } };
+                    //spanCR.InnerSpans.Add(new Span() { InnerSpans = new List<Span>(), Start = spanEnd, Text = "\r", Rule = new Lexer.LexerRules.RuleLookupLexerRule("whitespace", "carriageReturn") });
+                    //spanCR.InnerSpans.Add(new Span() { InnerSpans = new List<Span>(), Start = spanEnd, Text = "\r", Rule = new Lexer.LexerRules.RepeatRuleLexerRule("whitespaces", "whitespace") });
+                    //output.Add(spanCR);
+                    //spanEnd++;
+                    //Span spanLF = new Span() { InnerSpans = new List<Span>(), Start = spanEnd, Text = "\n", Rule = new Lexer.LexerRules.CharLexerRule("lineFeed", '\n') { Token = '\n', RuleName = "lineFeed" } };
+                    //spanLF.InnerSpans.Add(new Span() { InnerSpans = new List<Span>(), Start = spanEnd, Text = "\n", Rule = new Lexer.LexerRules.RuleLookupLexerRule("whitespace", "lineFeed") });
+                    //spanLF.InnerSpans.Add(new Span() { InnerSpans = new List<Span>(), Start = spanEnd, Text = "\n", Rule = new Lexer.LexerRules.RepeatRuleLexerRule("whitespaces", "whitespace") });
+                    //output.Add(spanLF);
+                    //spanEnd++;
+                    line = data.Line;
+                }
+                //data.Data.Start += spanEnd;
+                //lastSpan = data.Data;
 
+                int curStart = data.Data.Start;
+                data.Data.Start = spanEnd;
+                foreach(var item in data.Data.InnerSpans)
+                {
+                    int min = item.Start - curStart;
+                    item.Start = spanEnd + min;
+                }
+                spanEnd += data.Data.Length;
+                output.Add(data.Data);
+            }
+            return output;
+        }
     }
 }

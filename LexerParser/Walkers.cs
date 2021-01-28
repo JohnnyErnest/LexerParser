@@ -425,4 +425,62 @@ namespace LexerParser
             Console.WriteLine();
         }
     }
+
+    public class LexerResultWalker
+    {
+        List<(int Line, int Index, Lexer.Span Data)> Data { get; set; }
+        Func<string, string> setColor = new Func<string, string>((rule) =>
+        {
+            switch (rule)
+            {
+                case "quote":
+                case "doubleQuote":
+                case "quoting":
+                case "parenthesisOpen":
+                case "parenthesisClose":
+                    Console.ForegroundColor = ConsoleColor.Yellow; break;
+                case "digits":
+                    Console.ForegroundColor = ConsoleColor.Cyan; break;
+                case "letters":
+                    Console.ForegroundColor = ConsoleColor.Gray; break;
+                case "greaterThan":
+                case "lessThan":
+                    Console.ForegroundColor = ConsoleColor.Green; break;
+                case "forwardSlash":
+                    Console.ForegroundColor = ConsoleColor.White; break;
+                default: break;
+            }
+            return rule;
+        });
+        public LexerResultWalker(List<Lexer.Span> data)
+        {
+            int line = 0;
+            foreach (var span in data)
+            {
+                //if (span.Line != line) { Console.WriteLine(); line = span.Line; }
+                foreach (var rule in span.InnerSpans.Select(x => x.Rule))
+                {
+                    string currentRule = rule.RuleName;
+                    setColor(currentRule);
+                }
+                setColor(span.Rule.RuleName);
+                Console.Write(span.Text);
+            }
+        }
+        public LexerResultWalker(Lexer.LexerResult lexer)
+        {
+            int line = 0;
+            foreach(var span in lexer.CollectionInnerSpans)
+            {
+                if (span.Line != line) { Console.WriteLine(); line = span.Line; }
+                foreach(var rule in span.Data.InnerSpans.Select(x => x.Rule))
+                {
+                    string currentRule = rule.RuleName;
+                    setColor(currentRule);
+                }
+                setColor(span.Data.Rule.RuleName);
+                Console.Write(span.Data.Text);
+            }
+        }
+    }
 }

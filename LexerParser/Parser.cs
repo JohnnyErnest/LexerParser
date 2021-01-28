@@ -1,8 +1,10 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading.Tasks;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
@@ -144,17 +146,38 @@ namespace LexerParser
         {
             public bool IsOptional { get; set; }
             public bool IsRepeating { get; set; }
-            public string TokenList { get; set; }
-            public string SequenceList { get; set; }
+            string _TokenList;
+            public bool HasTokens { get; set; }
+            public string TokenList { get { return _TokenList; } set {
+                    _TokenList = value;
+                    HasTokens = !string.IsNullOrEmpty(_TokenList);
+                    _Tokens = !string.IsNullOrEmpty(_TokenList) ? _TokenList.Split(',').Select(x => x.Trim()).ToArray() : null;
+                } }
+            string _SequenceList;
+            public bool HasSequences { get; set; }
+            public string SequenceList { get { return _SequenceList; } set {
+                    _SequenceList = value;
+                    HasSequences = !string.IsNullOrEmpty(_SequenceList);
+                    _Sequences = !string.IsNullOrEmpty(_SequenceList) ? _SequenceList.Split(',').Select(x => x.Trim()).ToArray() : null;
+                } }
+            string _EBNFItemList;
             [JsonProperty("ebnfItem")]
-            public string EBNFItemList { get; set; }
+            public string EBNFItemList { get { return _EBNFItemList; } set {
+                    _EBNFItemList = value;
+                    _EBNFChoices = !string.IsNullOrEmpty(_EBNFItemList) ? _EBNFItemList.Split('|').Select(x => x.Trim()).ToArray() : null;
+                    _EBNFConcatenations = !string.IsNullOrEmpty(_EBNFItemList) ? _EBNFItemList.Split(',').Select(x => x.Trim()).ToArray() : null;
+                } }
             [JsonProperty("varName")]
             public string VariableName { get; set; }
             public string Unknowns { get; set; }
-            public string[] Tokens { get { return !string.IsNullOrEmpty(TokenList) ? TokenList.Split(',').Select(x => x.Trim()).ToArray() : null; } }
-            public string[] Sequences { get { return !string.IsNullOrEmpty(SequenceList) ? SequenceList.Split(',').Select(x => x.Trim()).ToArray() : null; } }
-            public string[] EBNFChoices { get { return !string.IsNullOrEmpty(EBNFItemList) ? EBNFItemList.Split('|').Select(x => x.Trim()).ToArray() : null; } }
-            public string[] EBNFConcatenations { get { return !string.IsNullOrEmpty(EBNFItemList) ? EBNFItemList.Split(',').Select(x => x.Trim()).ToArray() : null; } }
+            string[] _Tokens;
+            public string[] Tokens { get { return _Tokens; } }
+            string[] _Sequences;
+            public string[] Sequences { get { return _Sequences; } }
+            string[] _EBNFChoices;
+            public string[] EBNFChoices { get { return _EBNFChoices; } }
+            string[] _EBNFConcatenations;
+            public string[] EBNFConcatenations { get { return _EBNFConcatenations; } }
             public string SyntaxColor { get; set; }
             public object Clone()
             {
@@ -598,10 +621,18 @@ namespace LexerParser
             public bool Matched { get; set; }
             public ParserSequence Sequence { get; set; }
             public List<ParserResult> Results { get; set; } = new List<ParserResult>();
-
             public override string ToString()
             {
                 return $"Matched:{Matched} Seq:{(Sequence != null ? Sequence.SequenceName : "")}";
+            }
+        }
+        public class SearchResult
+        {
+            public List<Result> Result { get; set; }
+            public List<(int Line, ParserResult Data)> CombinedResults { get; set; } = new List<(int, ParserResult)>();
+            public override string ToString()
+            {
+                return $"[Combined Results: {CombinedResults.Count}]";
             }
         }
         public Lexer InputLexer { get; set; }
@@ -610,6 +641,8 @@ namespace LexerParser
         public List<(int, string, string)> ParsedSequenceSectionLog = new List<(int, string, string)>();
         public List<(int, string, string, string)> ParsedLog = new List<(int, string, string, string)>();
         public int MaxLevel { get; set; } = 100;
+        public int MaxParseLevel { get; set; } = -1;
+        public int MaxParseIndex { get; set; } = -1;
         public bool CancelAllParsing = false;
         public bool UseLogging = false;
         public StringBuilder Log { get; set; } = new StringBuilder();
@@ -678,44 +711,95 @@ namespace LexerParser
         }
         (int, bool, bool, List<ParserResult>, bool, bool) CheckSequenceSection(Lexer.LexerResult input, Lexer lexer, ParserSequence sequence, SequenceSection section, int index, bool foundOnce, List<ParserResult> variables, int level, ParserSequenceAndSection parent, ParserSequenceAndSection root, bool showOnConsole = false)
         {
-            if (level > MaxLevel)
-            {
-                CancelAllParsing = true;
-                return (-1, false, false, null, false, false);
-            }
-            var tokens = section.Tokens;
-            var sequences = section.Sequences;
-            var optional = section.IsOptional;
-            var repeating = section.IsRepeating;
+            //if (level > MaxLevel)
+            //{
+            //    CancelAllParsing = true;
+            //    return (-1, false, false, null, false, false);
+            //}
+            //MaxParseLevel = Math.Max(level, MaxParseLevel);
 
-            var spans = input.OrganizedSpans.Where(x => x.Start <= index && index < x.End).ToArray().Clone() as Lexer.Span[];
-            var spans_org = input.ParsedOrganized.Where(x => x.Start <= index && index < x.End).ToArray().Clone() as Lexer.Span[];
+            //string[] tokens = section.Tokens;
+            //string[] sequences = section.Sequences;
+            bool hasTokens = section.HasTokens;
+            bool hasSequences = section.HasSequences;
+
+            bool optional = section.IsOptional;
+            bool repeating = section.IsRepeating;
+
+            //var spans = input.OrganizedSpans.Where(x => x.Start <= index && index < x.End).ToArray();
+            //var spans = input.OrganizedSpans.Where(x => x.IsBetween(index)).ToArray();
+
+            //List<Lexer.Span> spans = new List<Lexer.Span>();
+            //for (int i1 = 0; i1 < input.OrganizedSpans.Count; i1++)
+            //{
+            //    Lexer.Span span1 = input.OrganizedSpans[i1];
+            //    //if (span1.IsBetween(index)) { spans.Add(span1); }
+            //    if (span1.Start <= index && index < span1.End) { spans.Add(span1); }
+            //}
+
+            //List<Lexer.Span> spans = new List<Lexer.Span>();
+            //foreach (Lexer.Span span in input.OrganizedSpans)
+            //{
+            //    if (span.Start <= index && index < span.End) { spans.Add(span); }
+            //}
+
+
+            //spans = spans_A.OrderBy(x => x.Start).ToList();
+            //if (loopResult.IsCompleted)
+            //{
+            //    spans = spans_A.OrderBy(x => x.Start).ToList();
+            //}
+            //else
+            //{
+            //    Console.WriteLine("NOT COMPLETED");
+            //}
+
+
+
+            //foreach (var item in input.OrganizedSpans)
+            //{
+            //    if (item.IsBetween(index)) { spans.Add(item); }
+            //}
 
             bool found = false;
-            if (tokens != null)
+            if (hasTokens)
             {
-                foreach (var item in tokens)
+                string[] tokens = section.Tokens;
+                //foreach (string item in tokens)
+                for(int iii=0;iii<tokens.Length;iii++)
                 {
-                    var rule = lexer.Rules.Where(x => x.RuleName.ToLower() == item.ToLower()).FirstOrDefault();
+                    string item = tokens[iii];
+                    //Lexer.LexerRules.ILexerRule rule = lexer.Rules.Where(x => item.Equals(x.RuleName, StringComparison.Ordinal)).FirstOrDefault();
+                    Lexer.LexerRules.ILexerRule rule = lexer.Rules.Where(x => item.Equals(x.RuleName)).FirstOrDefault();
                     if (rule != null)
                     {
-                        bool foundInParsed = false;
-                        foreach(var span in spans_org)
+                        List<Lexer.Span> spans = new List<Lexer.Span>();
+                        for (int i1 = 0; i1 < input.OrganizedSpans.Count; i1++)
                         {
+                            Lexer.Span span1 = input.OrganizedSpans[i1];
+                            if (span1.Start <= index && index < span1.End) { spans.Add(span1); }
+                        }
+
+                        //foreach (Lexer.Span span in spans)
+                        for(int iiii=0; iiii<spans.Count;iiii++)
+                        {
+                            Lexer.Span span = spans[iiii];
                             if (!found)
                             {
-                                if (span.Rule.RuleName == rule.RuleName)
+                                //if (span.Rule.RuleName == rule.RuleName)
+                                if (rule.RuleName.Equals(span.Rule.RuleName))
                                 {
                                     found = true;
-                                    foundInParsed = true;
+                                    //foundInParsed = true;
                                     index += span.Length;
+                                    //MaxParseIndex = Math.Max(index, MaxParseIndex);
                                     string groupName = rule.RuleName;
-                                    if (groupName.Contains(":::"))
+                                    if (groupName.IndexOf(":::") > -1)
                                     {
                                         int strIndex = groupName.IndexOf(":::");
                                         groupName = groupName.Substring(0, strIndex);
                                     }
-                                    var result1 = new ParserResult
+                                    ParserResult result1 = new ParserResult
                                     {
                                         Level = level,
                                         VariableName = section.VariableName,
@@ -734,22 +818,26 @@ namespace LexerParser
                             }
                             if (!found)
                             {
-                                foreach (var inner in span.InnerSpans.Where(x => x.Start <= index && index < x.End))
+                                Lexer.Span[] innerArray = span.InnerSpans.Where(x => x.Start <= index && index < x.End).ToArray();
+                                //foreach (Lexer.Span inner in innerArray)
+                                for(int ia=0;ia<innerArray.Length;ia++)
                                 {
+                                    Lexer.Span inner = innerArray[ia];
                                     if (!found)
                                     {
                                         if (inner.Rule.RuleName == rule.RuleName)
                                         {
                                             found = true;
-                                            foundInParsed = true;
+                                            //foundInParsed = true;
                                             index += inner.Length;
+                                            //MaxParseIndex = Math.Max(index, MaxParseIndex);
                                             string groupName = rule.RuleName;
-                                            if (groupName.Contains(":::"))
+                                            if (groupName.IndexOf(":::") > -1)
                                             {
                                                 int strIndex = groupName.IndexOf(":::");
                                                 groupName = groupName.Substring(0, strIndex);
                                             }
-                                            var result1 = new ParserResult
+                                            ParserResult result1 = new ParserResult
                                             {
                                                 Level = level + 1,
                                                 VariableName = section.VariableName,
@@ -769,84 +857,28 @@ namespace LexerParser
                                 }
                             }
                         }
-                        //bool foundInRegular = false;
-                        //foreach (var span in spans)
-                        //{
-                        //    if (!found)
-                        //    {
-                        //        if (span.Rule.RuleName == rule.RuleName)
-                        //        {
-                        //            found = true;
-                        //            foundInRegular = true;
-                        //            index += span.Length;
-                        //            var result1 = new ParserResult
-                        //            {
-                        //                Level = level,
-                        //                VariableName = section.VariableName,
-                        //                VariableValue = span.Text,
-                        //                Span = span,
-                        //                Section = section,
-                        //                Sequence = sequence,
-                        //                Name = rule.RuleName,
-                        //                Parent = parent,
-                        //                Root = root
-                        //            };
-                        //            //parent.Node = result1;
-                        //            variables.Add(result1);
-                        //        }
-                        //    }
-                        //    if (!found)
-                        //    {
-                        //        foreach (var inner in span.InnerSpans.Where(x => x.Start <= index && index < x.End))
-                        //        {
-                        //            if (!found)
-                        //            {
-                        //                if (inner.Rule.RuleName == rule.RuleName)
-                        //                {
-                        //                    found = true;
-                        //                    foundInRegular = true;
-                        //                    index += inner.Length;
-                        //                    var result1 = new ParserResult
-                        //                    {
-                        //                        Level = level + 1,
-                        //                        VariableName = section.VariableName,
-                        //                        VariableValue = inner.Text,
-                        //                        Span = inner,
-                        //                        Section = section,
-                        //                        Sequence = sequence,
-                        //                        Name = rule.RuleName,
-                        //                        Root = root,
-                        //                        Parent = parent
-                        //                    };
-                        //                    //parent.Node = result1;
-                        //                    variables.Add(result1);
-                        //                }
-                        //            }
-                        //        }
-                        //    }
-                        //}
-                        //if (foundInRegular == true && foundInParsed == false)
-                        //{
-                        //}
                     }
                 }
             }
-            if (sequences != null && !found)
+            if (hasSequences && !found)
             {
                 bool anyTrue = false;
-                foreach (var item in sequences)
+                string[] sequences = section.Sequences;
+                //foreach (string item in sequences)
+                for(int iii=0;iii<sequences.Length;iii++)
                 {
-                    var seq = Sequences.Where(x => x.SequenceName.ToLower() == item.ToLower()).FirstOrDefault();
+                    string item = sequences[iii];
+                    //ParserSequence seq = Sequences.FirstOrDefault(x => item.Equals(x.SequenceName, StringComparison.OrdinalIgnoreCase));
+                    ParserSequence seq = Sequences.FirstOrDefault(x => item.Equals(x.SequenceName));
+                    //if (seq != null && seq2 == null)
+                    //{
+                    //    Console.WriteLine(seq);
+                    //}
+
                     if (seq != null)
                     {
                         if (!found)
                         {
-                            //var spanText = (spans != null ? (spans.Count() > 0 ? spans.First().Text : "") : "");
-                            //Console.WriteLine("".PadLeft(level * 3, ' ') + $"[{item}, {spanText}], ");
-
-                            //ParsedSequenceSectionLog.Add((level, "Before Called from Inside Section", section.ToString()));
-                            //ParsedLog.Add((level, "Before Called from Inside Section", sequence.SequenceName, section.ToString()));
-
                             if (CancelAllParsing)
                             {
                                 ParsedLog.Add((level, "SHUTTING DOWN BEFORE from CheckSequenceSection", sequence.SequenceName, section.ToString()));
@@ -855,20 +887,12 @@ namespace LexerParser
 
                             var newParent = new ParserSequenceAndSection() { Sequence = seq, Section = null/*, Node = parent.Node*/ };
                             var result = CheckSequence(input, lexer, seq, index, level + 1, newParent, root, showOnConsole);
-                            //ParsedLog.Add((level, $"Inner CheckSequence Results Idx:{result.Item1}, Found:{result.Item2}", sequence.SequenceName, ""));
-
-                            //ParsedSequenceSectionLog.Add((level, "After Called from Inside Section", section.ToString()));
-                            //ParsedLog.Add((level, "After Called from Inside Section", sequence.SequenceName, section.ToString()));
-
-                            if (level > MaxLevel)
-                            {
-                                ParsedLog.Add((level, "SHUTTING DOWN AFTER from CheckSequenceSection", sequence.SequenceName, section.ToString()));
-                                CancelAllParsing = true;
-                                return (-1, false, false, null, false, false);
-                            }
-
-                            //Console.WriteLine($"NewIndex:{result.Item1}, Found:{result.Item2}");
-                            //Console.WriteLine($"Optional:{optional}, Repeating:{repeating}");
+                            //if (level > MaxLevel)
+                            //{
+                            //    ParsedLog.Add((level, "SHUTTING DOWN AFTER from CheckSequenceSection", sequence.SequenceName, section.ToString()));
+                            //    CancelAllParsing = true;
+                            //    return (-1, false, false, null, false, false);
+                            //}
 
                             if (result.Item2)
                             {
@@ -878,7 +902,7 @@ namespace LexerParser
                                 if (found)
                                 {
                                     string groupName = seq.SequenceName;
-                                    if (groupName.Contains(":::"))
+                                    if (groupName.IndexOf(":::") > -1)
                                     {
                                         int strIndex = groupName.IndexOf(":::");
                                         groupName = groupName.Substring(0, strIndex);
@@ -895,7 +919,6 @@ namespace LexerParser
                                         Parent = parent,
                                         Root = root
                                     };
-                                    //parent.Node = parserResult;
                                     if (!string.IsNullOrEmpty(parserResult.VariableName))
                                     {
                                         parserResult.VariableValue = parserResult.InnerResultsText;
@@ -903,13 +926,6 @@ namespace LexerParser
                                     variables.Add(parserResult);
                                 }
                             }
-                            //else
-                            //{
-                            //    //if (!section.IsOptional)
-                            //    //{
-                            //    //    return (-1, false, false, null, false, false);
-                            //    //}
-                            //}
                         }
                     }
                 }
@@ -940,12 +956,12 @@ namespace LexerParser
         }
         (int, bool, List<ParserResult>) CheckSequence(Lexer.LexerResult input, Lexer lexer, ParserSequence sequence, int index, int level, ParserSequenceAndSection parent, ParserSequenceAndSection root, bool showOnConsole = false)
         {
-            if (level > MaxLevel)
-            {
-                CancelAllParsing = true;
-                return (-1, false, null);
-            }
-
+            //if (level > MaxLevel)
+            //{
+            //    CancelAllParsing = true;
+            //    return (-1, false, null);
+            //}
+            //MaxParseLevel = Math.Max(level, MaxParseLevel);
             int idxResult = -1;
             bool found = false;
             List<ParserResult> foundItems = new List<ParserResult>();
@@ -957,7 +973,7 @@ namespace LexerParser
             {
                 List<ParserResult> variables = new List<ParserResult>();
 
-                string idString = section.ToString();
+                //string idString = section.ToString();
                 //ParsedSequenceSectionLog.Add((level, "Before", idString));
                 //ParsedLog.Add((level, "Before", sequence.SequenceName, idString));
 
@@ -967,6 +983,7 @@ namespace LexerParser
                     return (-1, false, null);
                 }
 
+                int idxPrior = index;
                 //string json = parent.Node.GetJson();
                 var newParent = new ParserSequenceAndSection() { Sequence = sequence, Section = section/*, Node = parent.Node, NodeText = json*/ };
                 var result = CheckSequenceSection(input, lexer, sequence, section, index, false, variables, level + 1, newParent, root, showOnConsole);
@@ -984,7 +1001,21 @@ namespace LexerParser
 
                 if (showOnConsole)
                 {
-                    Console.WriteLine(level + " " + "".PadLeft(level * 3, ' ') + $"{sectionIndex}:{sequence.SequenceName}, Section:{section}, Found:{result.Item2}, FoundOnce:{result.Item3}, IdxResult:{result.Item1}");
+                    var priorTextSpan = input.OrganizedSpans.Where(x => x.Start <= idxPrior && x.End >= idxPrior).OrderByDescending(x => x.Length).FirstOrDefault();
+                    var currentTextSpan = input.OrganizedSpans.Where(x => x.Start <= index && x.End >= index).OrderByDescending(x => x.Length).FirstOrDefault();
+                    string textPrior = "";
+                    string textCurrent = "";
+                    if (priorTextSpan != null)
+                    {
+                        textPrior = priorTextSpan.Text;
+                    }
+                    if (currentTextSpan != null)
+                    {
+                        textCurrent = currentTextSpan.Text;
+                    }
+                    if (result.Item2) { Console.ForegroundColor = ConsoleColor.Green; }
+                    else { Console.ForegroundColor = ConsoleColor.Red; }
+                    Console.WriteLine(level + " " + "".PadLeft(level * 3, ' ') + $"\"{textPrior}\", \"{textCurrent}\", {sectionIndex}:{sequence.SequenceName}, Section:{section}, Found:{result.Item2}, FoundOnce:{result.Item3}, IdxResult:{result.Item1}");
                 }
                 //Log.AppendLine(level + " " + "".PadLeft(level * 3, ' ') + $"{sectionIndex}:{sequence.SequenceName}, Section:{section}, Found:{result.Item2}, FoundOnce:{result.Item3}, IdxResult:{result.Item1}");
 
@@ -1064,13 +1095,14 @@ namespace LexerParser
 
                 if (CancelAllParsing)
                 {
+                    if (showOnConsole) { Console.ForegroundColor = ConsoleColor.Gray; }
                     return (false, null, null);
                 }
 
                 var root = new ParserSequenceAndSection() { Sequence = sequence, Section = null };
                 var parent = new ParserSequenceAndSection() { Sequence = sequence, Section = null };
                 string groupName = sequence.SequenceName;
-                if (groupName.Contains(":::"))
+                if (groupName.IndexOf(":::") > -1)
                 {
                     int strIndex = groupName.IndexOf(":::");
                     groupName = groupName.Substring(0, strIndex);
@@ -1092,6 +1124,7 @@ namespace LexerParser
 
                 if (CancelAllParsing)
                 {
+                    if (showOnConsole) { Console.ForegroundColor = ConsoleColor.Gray; }
                     return (false, null, null);
                 }
 
@@ -1108,9 +1141,11 @@ namespace LexerParser
                     //root.Node = parserResult;
                     //parent.Node = parserResult;
                     items.Add(parserResult);
+                    if (showOnConsole) { Console.ForegroundColor = ConsoleColor.Gray; }
                     return (found, currentSequence, items);
                 }
             }
+            if (showOnConsole) { Console.ForegroundColor = ConsoleColor.Gray; }
             return (found, currentSequence, items);
         }
         public (bool, ParserSequence, List<ParserResult>) CheckSearch(Lexer.LexerResult input, Lexer lexer, string sequenceName = "", bool showOnConsole = false)
@@ -1155,13 +1190,14 @@ namespace LexerParser
 
                     if (CancelAllParsing)
                     {
+                        if (showOnConsole) { Console.ForegroundColor = ConsoleColor.Gray; }
                         return (false, null, null);
                     }
 
                     var root = new ParserSequenceAndSection() { Sequence = sequence, Section = null };
                     var parent = new ParserSequenceAndSection() { Sequence = sequence, Section = null };
                     string groupName = sequence.SequenceName;
-                    if (groupName.Contains(":::"))
+                    if (groupName.IndexOf(":::") > -1)
                     {
                         int strIndex = groupName.IndexOf(":::");
                         groupName = groupName.Substring(0, strIndex);
@@ -1201,10 +1237,12 @@ namespace LexerParser
                         //parent.Node = parserResult;
                         items.Add(parserResult);
                         //return (found, currentSequence, items);
-                        index++;
+                        
+                        //index++;
                         if (index >= input.OrganizedSpans.Max(x => x.End))
                         {
                             done = true;
+                            if (showOnConsole) { Console.ForegroundColor = ConsoleColor.Gray; }
                             return (found, currentSequence, items);
                         }
                     }
@@ -1215,12 +1253,14 @@ namespace LexerParser
                         {
                             done = true;
                             if (items.Count > 0) { found = true; }
+                            if (showOnConsole) { Console.ForegroundColor = ConsoleColor.Gray; }
                             return (found, currentSequence, items);
                         }
                     }
                 }
             }
             if (items.Count > 0) { found = true; }
+            if (showOnConsole) { Console.ForegroundColor = ConsoleColor.Gray; }
             return (found, currentSequence, items);
         }
         public List<ParserResult> OrganizeParentNodes(List<ParserResult> nodes, int level = 0, ParserResult parent = null)
@@ -1255,6 +1295,8 @@ namespace LexerParser
         }
         public Result Parse(string input, Lexer lexer = null, string sequenceName = "", bool showOnConsole = false, int maxSlidingWindow = -1)
         {
+            MaxParseLevel = -1;
+            MaxParseIndex = -1;
             InitParserLog();
             Lexer.LexerResult lexerResult = InputLexer.GetSpans(input, maxSlidingWindow: maxSlidingWindow);
             (bool, ParserSequence, List<ParserResult>) result = (false, null, new List<ParserResult>());
@@ -1277,8 +1319,41 @@ namespace LexerParser
             var items = OrganizeParentNodes(result.Item3);
             return new Result() { Matched = result.Item1, LexerResult = lexerResult, Sequence = result.Item2, Results = items };
         }
+        public Result Parse(List<Lexer.Span> input, Lexer lexer = null, string sequenceName = "", bool showOnConsole = false, int maxSlidingWindow = -1)
+        {
+            MaxParseLevel = -1;
+            MaxParseIndex = -1;
+            InitParserLog();
+            //Lexer.LexerResult lexerResult = InputLexer.GetSpans(input, maxSlidingWindow: maxSlidingWindow);
+            Lexer.LexerResult lexerResult = new Lexer.LexerResult()
+            {
+                OrganizedSpans = input
+            };
+
+            (bool, ParserSequence, List<ParserResult>) result = (false, null, new List<ParserResult>());
+            if (lexer != null && sequenceName != null)
+            {
+                result = this.Check(lexerResult, lexer, sequenceName, showOnConsole);
+            }
+            else if (lexer != null)
+            {
+                result = this.Check(lexerResult, lexer, showOnConsole: showOnConsole);
+            }
+            else if (sequenceName != null)
+            {
+                result = this.Check(lexerResult, InputLexer, sequenceName, showOnConsole);
+            }
+            else
+            {
+                result = this.Check(lexerResult, InputLexer);
+            }
+            var items = OrganizeParentNodes(result.Item3);
+            return new Result() { Matched = result.Item1, LexerResult = lexerResult, Sequence = result.Item2, Results = items };
+        }
         public Result Search(string input, Lexer lexer = null, string sequenceName = "", bool showOnConsole = false, int maxSlidingWindow = -1)
         {
+            MaxParseLevel = -1;
+            MaxParseIndex = -1;
             InitParserLog();
             Lexer.LexerResult lexerResult = InputLexer.GetSpans(input, maxSlidingWindow: maxSlidingWindow);
             (bool, ParserSequence, List<ParserResult>) result = (false, null, new List<ParserResult>());
@@ -1301,12 +1376,15 @@ namespace LexerParser
             var items = OrganizeParentNodes(result.Item3);
             return new Result() { Matched = result.Item1, LexerResult = lexerResult, Sequence = result.Item2, Results = items };
         }
-        public List<Result> Search(string[] inputs, Lexer lexer = null, string sequenceName = "", bool showOnConsole = false, int maxSlidingWindow = -1)
+        public SearchResult Search(string[] inputs, Lexer lexer = null, string sequenceName = "", bool showOnConsole = false, int maxSlidingWindow = -1)
         {
+            MaxParseLevel = -1;
+            MaxParseIndex = -1;
             InitParserLog();
             bool foundAny = false;
             //(bool, ParserSequence, List<ParserResult>) result1 = (false, null, new List<ParserResult>());
             List<ParserResult> results = new List<ParserResult>();
+            SearchResult searchResults = new SearchResult();
             List<Result> results1 = new List<Result>();
 
             foreach (var line in inputs)
@@ -1338,23 +1416,20 @@ namespace LexerParser
             }
             if (results1.Count == 0)
             {
-                results1.Add(new Result() { Matched = false });
+                results1.Add(new Result() { Matched = false, Results = new List<ParserResult>() });
             }
-            return results1;
-        }
-        void AddEBNFRuleSectionsMainBlock(string identifier, string input)
-        {
-            var result = Parse(input, sequenceName: "rule");
-            var id = result.Results[0].GetDescendantsOfType(new string[] { "lhs" })[0].InnerResultsText.Trim();
-            var rhs = result.Results[0].GetDescendantsOfType(new string[] { "rhs" })[0].InnerResultsText.Trim();
-            Sequences.Add(new ParserSequence()
+            searchResults.Result = results1;
+            searchResults.CombinedResults = new List<(int, ParserResult)>();
+            int lineIdx = 0;
+            foreach(var item in results1)
             {
-                SequenceName = id,
-                Sections = new List<SequenceSection>()
+                foreach(var item1 in item.Results)
                 {
-                    new SequenceSection() { SequenceList = rhs }
+                    searchResults.CombinedResults.Add((lineIdx, item1));
                 }
-            });
+                lineIdx++;
+            }
+            return searchResults;
         }
         bool IsSequence(string name)
         {
@@ -1374,8 +1449,8 @@ namespace LexerParser
                 bool opt = false;
                 bool rep = false;
                 string strSection = section;
-                if (strSection.Contains("/Opt")) { opt = true; }
-                if (strSection.Contains("/Rep")) { rep = true; }
+                if (strSection.IndexOf("/Opt") > -1) { opt = true; }
+                if (strSection.IndexOf("/Rep") > -1) { rep = true; }
                 strSection = strSection.Replace("/Opt", "");
                 strSection = strSection.Replace("/Rep", "");
                 var choices = strSection.Split(new char[] { '|' }, StringSplitOptions.RemoveEmptyEntries).Select(x => x.Trim()).ToArray();
@@ -1614,211 +1689,6 @@ namespace LexerParser
                 {
                     string ruleText = rule.Results[0].InnerResultsText.Trim();
                     AddEBNFRule(ruleText);
-                }
-            }
-        }
-        public void AddEBNFRuleDeprecated(string inputEBNF)
-        {
-            var firstResult = Parse(inputEBNF, sequenceName: "rule");
-            if (firstResult.Matched)
-            {
-                // Get lhs Identifier Name
-                var identifier = firstResult.Results[0].GetDescendantsOfType(new string[] { "lhs" })[0].InnerResultsText.Trim();
-
-                RemoveEBNFRule(identifier);
-
-                // Get EBNF Groups and ensure valid names
-                var firstDescendants = firstResult.Results[0].GetEBNFGroups(identifier, true).OrderBy(x => x.Item2.MinStart()).ToList();
-                List<(bool finished, string nodeName, ParserResult node)> finishedList = new List<(bool, string, ParserResult)>();
-                for (int i = 0; i < firstDescendants.Count; i++)
-                {
-                    finishedList.Add((false, firstDescendants[i].Item1, firstDescendants[i].Item2));
-                }
-
-                foreach (var item in firstDescendants)
-                {
-                    var results2 = Parse(item.Item1, sequenceName: "ebnfIdentifierGroupPlaceholder");
-                    // To Do: do something here if not a valid name
-                    if (results2.Matched == false)
-                    {
-                        throw new Exception("Identifier error adding EBNF rule");
-                    }
-                }
-
-                Console.WriteLine("Adding EBNF rule:" + identifier);
-                //Console.WriteLine(inputEBNF);
-
-                bool doneTokens = false;
-                while (!doneTokens)
-                {
-                    var res_a = Parse(inputEBNF, sequenceName: "rule");
-                    var tokenDescendants = res_a.Results[0].GetEBNFGroups(identifier, true);
-                    var tokenCount = tokenDescendants.Where(x => x.Item2.Name.StartsWith("ebnfTerminal")).OrderByDescending(x => x.Item2.MinStart()).Count();
-                    if (tokenCount == 0)
-                    {
-                        doneTokens = true;
-                    }
-                    else
-                    {
-                        var item = tokenDescendants.OrderByDescending(x => x.Item2.MinStart()).Where(x => x.Item2.Name.StartsWith("ebnfTerminal")).FirstOrDefault();
-                        var original = finishedList.OrderByDescending(x => x.node.MinStart()).Where(x => x.node.Name.StartsWith("ebnfTerminal") && x.finished == false).FirstOrDefault();
-                        var originalItem = original.node;
-
-                        // Is a string
-                        var resOuter = item.Item2;
-                        int minOuter = resOuter.MinStart();
-                        int maxOuter = resOuter.MaxEnd();
-                        string textOuter = resOuter.InnerResultsText;
-                        int textOuterLen = textOuter.Length;
-                        var resInner = item.Item2.InnerResults[0].InnerResults[1];
-                        int minInner = resInner.MinStart();
-                        int maxInner = resInner.MaxEnd();
-                        string textInner = resInner.InnerResultsText;
-                        int textInnerLen = textInner.Length;
-
-                        // Add token rule
-                        string tokenName = "str" + item.Item1;
-                        Lexer.LexerRules.StringLexerRule strRule = new Lexer.LexerRules.StringLexerRule(tokenName, textInner);
-                        InputLexer.Rules.Add(strRule);
-                        Sequences.Add(new Parser.ParserSequence()
-                        {
-                            SequenceName = item.Item1,
-                            Sections = new List<Parser.SequenceSection>()
-                            {
-                                new Parser.SequenceSection() { TokenList = "str" + original.nodeName }
-                            }
-                        });
-
-                        original.finished = true;
-                        for (int a = 0; a < finishedList.Count; a++)
-                        {
-                            if (finishedList[a].node == original.node)
-                            {
-                                finishedList[a] = original;
-                            }
-                        }
-                        inputEBNF = inputEBNF.Remove(minOuter, textOuterLen);
-                        inputEBNF = inputEBNF.Insert(minOuter, tokenName);
-                        //Console.WriteLine(inputEBNF);
-                    }
-                }
-
-                bool doneSequences = false;
-                while (!doneSequences)
-                {
-                    firstResult = Parse(inputEBNF, sequenceName: "rule", showOnConsole: false);
-                    if (!firstResult.Matched)
-                    {
-                        throw new Exception("A parsing error occurred while adding EBNF Rule.");
-                    }
-                    var descendantsMap = firstResult.Results[0].GetEBNFGroupsWithContainmentMap(identifier);
-                    if (descendantsMap.Count == 0)
-                    {
-                        doneSequences = true;
-                    }
-                    var descendantsCurrent = descendantsMap.Where(x => x.Item3.Count(x1 => x1.Item2 == true) == 0).FirstOrDefault();
-                    if (!doneSequences)
-                    {
-                        //var item = tokenDescendants.OrderByDescending(x => x.Item2.MinStart()).Where(x => x.Item2.Name.StartsWith("ebnfTerminal")).FirstOrDefault();
-                        //var original = finishedList.OrderByDescending(x => x.node.MinStart()).Where(x => x.node.Name.StartsWith("ebnfTerminal") && x.finished == false).FirstOrDefault();
-                        //var originalItem = original.node;
-
-                        var item = descendantsCurrent;
-                        //var original = finishedList.Where(x => x.node.InnerResultsText == item.Item2.InnerResultsText && x.finished == false).FirstOrDefault();
-                        var original = finishedList.Where(x => x.finished == false &&
-                            x.node.Parent.Node.Level == item.result.Parent.Node.Level &&
-                            x.node.Parent.Node.Name == item.result.Parent.Node.Name).FirstOrDefault();
-                        if (original.node == null)
-                        {
-                            throw new Exception("An errror happened when adding a rule sequence.");
-                        }
-                        var originalItem = original.node;
-
-                        var resOuter = item.result;
-                        int minOuter = resOuter.MinStart();
-                        int maxOuter = resOuter.MaxEnd();
-                        string textOuter = resOuter.InnerResultsText;
-                        int textOuterLen = textOuter.Length;
-
-                        var resInner = resOuter.InnerResults.Where(x => x.Name == "rhs").ToArray();
-                        int minInner = resInner.Min(x => x.MinStart());
-                        int maxInner = resInner.Max(x => x.MaxEnd());
-                        string textInner = "";
-                        foreach (var itemInner in resInner)
-                        {
-                            textInner += itemInner.InnerResultsText;
-                        }
-                        int textInnerLen = textInner.Length;
-
-                        var cti = descendantsCurrent.Item3.Where(x => x.isSameNode == false && (x.containedBy || x.contains)).ToArray();
-                        var containerInfo = descendantsCurrent.containerInfo;
-
-                        var containsCount = containerInfo.Count(x => x.contains);
-
-                        bool isContainedByMain = firstResult.Results[0].ContainsNode(item.result);
-                        bool isMainNode = firstResult.Results[0] == item.result;
-
-                        //string sequenceName = item.identifierName;
-                        string sequenceName = original.nodeName;
-
-                        if (containsCount == 0)
-                        {
-                            string append = "";
-                            if (textOuter.StartsWith("{")) { append += "/Opt/Rep"; }
-                            else if (textOuter.StartsWith("[")) { append += "/Opt"; }
-                            else if (textOuter.StartsWith("%%")) { append += "/Rep"; }
-
-                            inputEBNF = inputEBNF.Remove(minOuter, textOuterLen);
-                            inputEBNF = inputEBNF.Insert(minOuter, sequenceName + append);
-
-                            AddEBNFRuleSections(identifier, sequenceName, textInner, textOuter);
-
-                            original.finished = true;
-                            for (int a = 0; a < finishedList.Count; a++)
-                            {
-                                if (finishedList[a].node == original.node)
-                                {
-                                    finishedList[a] = original;
-                                }
-                            }
-
-                            //Console.WriteLine(inputEBNF);
-                        }
-                    }
-                }
-
-                firstResult = Parse(inputEBNF, sequenceName: "rule", showOnConsole: false);
-                var descendants1 = firstResult.Results[0].GetDescendantsOfType(new string[] { "rhs" }).OrderBy(x => x.Level);
-
-                string id_main_block = identifier + ":::" + "rule_main_block:0:0";
-                string mainBlockText = descendants1.ToArray()[0].InnerResultsText;
-                AddEBNFRuleSections(identifier, id_main_block, mainBlockText, "");
-
-                if (descendants1.Count() > 0)
-                {
-                    var resOuter = descendants1.ToArray()[0];
-                    int minOuter = resOuter.MinStart();
-                    int maxOuter = resOuter.MaxEnd();
-                    string textOuter = resOuter.InnerResultsText;
-                    int textOuterLen = textOuter.Length;
-
-                    string append = "";
-                    if (textOuter.StartsWith("{")) { append += "/Opt/Rep"; }
-                    else if (textOuter.StartsWith("[")) { append += "/Opt"; }
-                    else if (textOuter.StartsWith("%%")) { append += "/Rep"; }
-
-                    inputEBNF = inputEBNF.Remove(minOuter, textOuterLen);
-                    inputEBNF = inputEBNF.Insert(minOuter, id_main_block + append);
-                    //Console.WriteLine(inputEBNF);
-                }
-
-                string id_rule = identifier + ":::" + "rule:0:0";
-                AddEBNFRuleSectionsMainBlock(id_rule, inputEBNF);
-
-                firstResult = Parse(inputEBNF, sequenceName: "rule", showOnConsole: false);
-                if (!firstResult.Matched)
-                {
-                    throw new Exception("Error adding rule");
                 }
             }
         }
