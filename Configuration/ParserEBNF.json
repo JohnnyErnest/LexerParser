@@ -27,7 +27,7 @@
         }
       ]
     },
-    "ebnfidentifier": {
+    "ebnfIdentifier": {
       "sequence": [
         {
           "tokenList": "ampersand,atSign",
