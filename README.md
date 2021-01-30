@@ -1,9 +1,9 @@
 # LexerParser
 
+LexerParser is a C# Lexical Analyzer and Parser for text that uses a JSON configuration as well as partial Extended Backus-Naur Form support (https://en.wikipedia.org/wiki/Extended_Backus%E2%80%93Naur_form) for parsing Context-Free Grammars expressed in EBNF. You can then enter text strings to be parsed by the resulting Parser and retrieve an AST node tree of ParserResults. You can also take parsed results and use them in evaluations, for example, the included expression calculator example parses an input expression and evaluates the end result, giving you the mathematical answer of the input calculation. 
+
 ![](https://raw.githubusercontent.com/JohnnyErnest/LexerParser/main/ParserScreenshot.png)
 **Figure 1**) An example use case of LexerParser, some examples of HTML, CSS, and SQL syntax being processed via EBNF rules to syntax highlight user entered texts, and also a mathematical equation being expressed as a syntax node tree and evaluated.
-
-LexerParser is a C# Lexical Analyzer and Parser for text that uses a JSON configuration as well as partial Extended Backus-Naur Form support (https://en.wikipedia.org/wiki/Extended_Backus%E2%80%93Naur_form) for parsing Context-Free Grammars expressed in EBNF. You can then enter text strings to be parsed by the resulting Parser and retrieve an AST node tree of ParserResults. You can also take parsed results and use them in evaluations, for example, the included expression calculator example parses an input expression and evaluates the end result, giving you the mathematical answer of the input calculation. 
 
 You might use LexerParser in your own programming projects for things like syntax highlighting a code editor document, parsing an HTML document into various Document Object Model components, building the parsing rules for a programming language, building an expression calculator, parsing an SQL query, parsing a style sheet of CSS rules into objects, and anywhere you might need a lexical analyzer and parser.
 
