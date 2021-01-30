@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using LexerParser;
@@ -76,9 +77,10 @@ namespace LexerParser1
                     6 And God said, Let there be a firmament in the midst of the waters, and let it divide the waters from the waters. 
                     7 And God made the firmament, and divided the waters which were under the firmament from the waters which were above the firmament: and it was so.";
                 var search1 = parser.Search(bibleText, lexer, sequenceName: "searchRule");
+                Console.WriteLine("Bible Background Search Results:");
                 foreach (var item in search1.Results)
                 {
-                    System.Diagnostics.Debug.WriteLine(item.InnerResultsText);
+                    Console.WriteLine(item.InnerResultsText);
                 }
             });
 
@@ -101,7 +103,7 @@ namespace LexerParser1
                 htmlOpenTag1 = ""&lt;"", htmlTagName, { htmlAttribute }, [whitespaces], ""&gt;"";
                 htmlCloseTag = ""</"", htmlTagName, "">"";
                 htmlCloseTag1 = ""&lt;/"", htmlTagName, ""&gt;"";
-                htmlInnerTagText = %% letters|spaces|digits|whitespaces|semicolon|underscore|equals %%;
+                htmlInnerTagText = %% letters|spaces|digits|whitespaces|semicolon|underscore|equals|period|questionMark %%;
                 htmlTag = htmlOpenTag, {htmlInnerTagText}, {htmlTag}, {htmlInnerTagText}, htmlCloseTag;
                 htmlTagNoInnerTag = htmlOpenTag, {htmlInnerTagText}, htmlCloseTag;
                 htmlTagSearch = htmlOpenTag|htmlCloseTag|htmlOpenAndCloseTag;";
@@ -115,6 +117,9 @@ namespace LexerParser1
                 cssClassDescendant = cssClass, whitespace, cssClass;
                 cssID = asterisk;
                 cssID = hashMark, cssSelectorName;
+                cssRootSelector = colon, cssSelectorName;
+                cssPseudoElementsSelector = colon, colon, [hyphen], cssSelectorName;
+                cssAtSelector = atSign, cssSelectorName;
                 cssElement = cssSelectorName;
                 cssElementWithClass = cssElement, cssClass;
                 cssElementList = cssElement, %% comma, [whitespace], cssElement %%;
@@ -122,19 +127,25 @@ namespace LexerParser1
                 cssElementDescendantList = cssElement, %% [whitespace], greaterThan, [whitespace], cssElement %%;
                 cssElementPlusList = cssElement, %% [whitespace], plus, [whitespace], cssElement %%;
                 cssElementTildeList = cssElement, %% [whitespace], tilde, [whitespace], cssElement %%;
-                cssSelectors = cssSelectorName | cssClass | cssSubClass | cssClassDescendant | cssAll | cssID | cssElement | cssElementWithClass | cssElementList | cssElementInsideList | cssElementDescendantList | cssElementPlusList | cssElementTildeList;
-                cssString = { letters | digits | parenthesisOpen | parenthesisClose | hashMark | colon | forwardSlash | period | comma | strEscapedQuote | strEscapedDoubleQuote };
+                cssSelectors = cssSelectorName | cssRootSelector | cssPseudoElementsSelector | cssClass | cssSubClass | cssClassDescendant | cssAll | cssID | cssAtSelector | cssElement | cssElementWithClass | cssElementList | cssElementInsideList | cssElementDescendantList | cssElementPlusList | cssElementTildeList;
+                cssString = { letters | digits | parenthesisOpen | parenthesisClose | hashMark | colon | forwardSlash | period | comma | strEscapedQuote | strEscapedDoubleQuote | whitespaces };
                 cssStringDblQuote = doubleQuote, cssString, doubleQuote;
                 cssStringQuote = quote, cssString, quote;
                 cssStringLiteral = cssStringDblQuote|cssStringQuote;
+                cssStringUrl = ""url("", quote, %% period|forwardSlash|colon|hyphen|letters|digits|underscore %%, quote, "")"";
+                cssStringList = cssStringLiteral, { comma, {whitespaces}, cssStringLiteral };
                 cssColorIdentifier = hashMark, ((hexadecimal, hexadecimal, hexadecimal, hexadecimal, hexadecimal, hexadecimal)|(hexadecimal, hexadecimal, hexadecimal)) ;
                 cssValueLiteral = letters|digits;
-                cssLiteral = cssStringLiteral|cssValueLiteral|cssColorIdentifier;
+                cssLiteral = cssStringUrl|cssStringLiteral|cssValueLiteral|cssColorIdentifier;
+                cssLiteralList = cssLiteral, {whitespaces}, %% comma, {whitespaces}, cssLiteral %%;
+                cssLiteralList2 = cssLiteral, {whitespaces}, %% cssLiteral, {whitespaces} %%;
                 cssPropertyName = letters, { letters|hyphen|digits };
-                cssProperty = [whitespaces], cssPropertyName, [whitespaces], colon, [whitespaces], cssLiteral, [whitespaces], semicolon, [whitespaces];
-                cssCodeBlock = [whitespaces], braceOpen, [whitespaces], %% cssProperty, [whitespaces] %%, braceClose;
+                cssVariableName = hyphen, hyphen, cssPropertyName;
+                cssVarUsage = ""var("", cssVariableName, "")"";
+                cssProperty = [whitespaces], cssPropertyName|cssVariableName, [whitespaces], colon, [whitespaces], cssVarUsage|cssLiteralList|cssLiteralList2|cssLiteral, [whitespaces], semicolon, {whitespaces};
+                cssCodeBlock = [whitespaces], braceOpen, {whitespaces}, %% cssProperty, {whitespaces} %%, braceClose;
                 cssStatement = cssSelectors, %% whitespaces %%, cssCodeBlock;
-                cssStatements = [whitespaces], %% cssStatement, [whitespaces] %%;";
+                cssStatements = {whitespaces}, %% cssStatement, {whitespaces} %%;";
             parser.AddEBNFGrammar(cssGrammar.Split(new string[] { Environment.NewLine }, StringSplitOptions.RemoveEmptyEntries));
 
             Console.WriteLine("Adding grammar rules for JS");
@@ -178,7 +189,7 @@ namespace LexerParser1
             }
             Console.ForegroundColor = ConsoleColor.Gray;
 
-            string inputHtml = "<html><head><title>Title</title><script type=\"text/javascript\" src=\"someFile.js\"></script></head><body><h2 selected>Helloooo hi</h2><div class=\"someClass\">Here is <span>some</span> text</div></body></html>";
+            string inputHtml = "<html><head><title>Title</title><script type=\"text/javascript\" src=\"someFile.js\"></script></head><body><h2 selected>Helloooo hi how <span>are</span> you</h2><div class=\"someClass\">Here is <span>some</span> text</div></body></html>";
             var resultHtml = parser.Parse(inputHtml, sequenceName: "htmlTag", showOnConsole: false, maxSlidingWindow: 1024);
             if (resultHtml.Matched)
             {
@@ -198,6 +209,11 @@ namespace LexerParser1
                 CssConsoleWalker walker = new CssConsoleWalker(resultCss.Results[0]);
             }
             Console.ForegroundColor = ConsoleColor.Gray;
+
+            inputCss = File.ReadAllText("Samples/main2.css");
+            var lexerCss = parser.InputLexer.GetSpans(inputCss.Split(new string[] { Environment.NewLine, "\r", "\n" }, StringSplitOptions.RemoveEmptyEntries));
+            var resultCss2 = parser.Parse(lexerCss, sequenceName: "cssStatements", showOnConsole: false);
+
 
             string inputCalc = "((3*2.5)+1.2)+((2*7*5)*12.5)+5";
             var resultCalc = parser.Parse(inputCalc, sequenceName: "mathExpr", showOnConsole: false);
@@ -447,6 +463,30 @@ namespace LexerParser1
 
             string inputPascal = "PROGRAM BEGIN a:=5; b1:='Hurrooo'; b2:=\"Yay\"; b2 := a; END;";
             var resultPascal = parser.Parse(inputPascal, sequenceName: "pascalRules");
+
+            string rule1 = @"regexTestRule = ""["", doubleQuote, strEscDblQuoteString1, ""]"", {whitespaces};";
+            parser.AddEBNFGrammar(rule1);
+            string inputRegex = "[\"This is some \\\"text\\\"...\"]";
+            var lexerSpans = lexer.GetSpans(inputRegex.Split(new string[] { Environment.NewLine }, StringSplitOptions.None));
+            var resultRegex = parser.Parse(lexerSpans, sequenceName: "regexTestRule", showOnConsole: false);
+
+            lexer.Rules.Add(new Lexer.LexerRules.RegexLexerRule("regexTest1", RegexOptions.Singleline, "[A-Za-z0-9]+"));
+            string rule2 = @"regexTestRule2 = ""AddDynamicRule("", dynamicLexerAction, "");"", {whitespaces};";
+            parser.AddEBNFGrammar(rule2);
+
+            string inputDynamicRegex = "AddDynamicRule(???-Regex:Name=\"Subsonic\":Pattern=\"(Hello\\s*)+\\!\\!\\!\\!\");";
+            var lexerSpans2 = lexer.GetSpans(inputDynamicRegex.Split(new string[] { Environment.NewLine }, StringSplitOptions.None));
+            var resultDynamic1 = parser.Parse(lexerSpans2, sequenceName: "regexTestRule2");
+
+            string ruleText1 = resultDynamic1.Results[0].GetDescendantsOfType(new[] { "dynamicLexerAction" })[0].InnerResultsText;
+            parser.AddDynamicLexerRule(ruleText1);
+
+            var execDyn1 = parser.ExecuteDynamicLexerRule("Hello Hello!", 0, ruleText1);
+
+            string exec1 = "newRule = \"[\", Subsonic, \"]\", {whitespaces};";
+            parser.AddEBNFGrammar(exec1);
+            string newExec1 = "[Hello Hello Hello!!!!]";
+            var res2 = parser.Parse(newExec1, sequenceName: "newRule");
 
             Console.WriteLine();
             CanReport = true;
