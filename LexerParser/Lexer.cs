@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -19,6 +20,7 @@ namespace LexerParser
         {
             public interface ILexerRule
             {
+                bool DynamicEvaluate { get; set; }
                 int Ordinal { get; set; }
                 string RuleName { get; set; }
                 string RuleType { get; set; }
@@ -31,8 +33,13 @@ namespace LexerParser
             {
                 void LookupRule(List<LexerRules.ILexerRule> rules);
             }
+            public interface ILexerDynamicRule
+            {
+                (bool Success, int NewIndex, int OriginalIndex, string Text) DynamicEvaluation(int index, string originalInput);
+            }
             public class CharLexerRule : ILexerRule
             {
+                public bool DynamicEvaluate { get; set; } = false;
                 public int Ordinal { get; set; } = 1;
                 public string RuleType { get; set; } = "Char";
                 public string RuleName { get; set; }
@@ -76,6 +83,7 @@ namespace LexerParser
             }
             public class CharInLexerRule : ILexerRule
             {
+                public bool DynamicEvaluate { get; set; } = false;
                 public int Ordinal { get; set; } = 2;
                 public string RuleName { get; set; }
                 public string RuleType { get; set; } = "CharIn";
@@ -118,6 +126,7 @@ namespace LexerParser
             }
             public class CaseInsensitiveStringLexerRule : ILexerRule
             {
+                public bool DynamicEvaluate { get; set; } = false;
                 public int Ordinal { get; set; } = 6;
                 public string RuleName { get; set; }
                 public string RuleType { get; set; } = "CaseInsensitiveString";
@@ -162,6 +171,7 @@ namespace LexerParser
             }
             public class StringLexerRule : ILexerRule
             {
+                public bool DynamicEvaluate { get; set; } = false;
                 public int Ordinal { get; set; } = 7;
                 public string RuleName { get; set; }
                 public string RuleType { get; set; } = "String";
@@ -215,6 +225,7 @@ namespace LexerParser
             }
             public class RuleLookupLexerRule : ILexerRule, ILexerLookup
             {
+                public bool DynamicEvaluate { get; set; } = false;
                 public int Ordinal { get; set; } = 3;
                 public string RuleName { get; set; }
                 public string RuleLookupName { get; set; }
@@ -274,6 +285,7 @@ namespace LexerParser
             }
             public class RuleCollectionRule : ILexerRule
             {
+                public bool DynamicEvaluate { get; set; } = false;
                 public int Ordinal { get; set; } = 4;
                 public RuleCollectionRule(string key, ILexerRule[] rules)
                 {
@@ -322,6 +334,7 @@ namespace LexerParser
             }
             public class RepeatRuleLexerRule : ILexerRule, ILexerLookup
             {
+                public bool DynamicEvaluate { get; set; } = false;
                 public int Ordinal { get; set; } = 5;
                 public string RuleName { get; set; }
                 public string RepeatRuleName { get; set; }
@@ -372,6 +385,235 @@ namespace LexerParser
                 public override bool Equals(object obj)
                 {
                     var o = (RepeatRuleLexerRule)obj;
+                    if (o.RuleName == this.RuleName) return true;
+                    return false;
+                }
+                public override int GetHashCode()
+                {
+                    return this.RuleName.GetHashCode();
+                }
+            }
+            public class RegexLexerRule : ILexerRule, ILexerDynamicRule
+            {
+                public bool DynamicEvaluate { get; set; } = true;
+                public string Pattern { get; set; }
+                public RegexOptions Options { get; set; } = RegexOptions.None;
+                public int Ordinal { get; set; } = 6;
+                public string RuleName { get; set; }
+                public string RuleType { get; set; } = "Regex";
+                public string StringToken { get { return Pattern; } }
+                public Match LastMatch { get; set; }
+                public (bool Success, int NewIndex, int OriginalIndex, string Text) DynamicEvaluation(int index, string originalInput)
+                {
+                    string input1 = originalInput.Substring(index);
+                    LastMatch = Regex.Match(input1, Pattern, Options);
+                    if (LastMatch.Success)
+                    {
+                        if (LastMatch.Index != 0) { return (false, index, -1, ""); }
+                        return (true, index + LastMatch.Length, index, input1.Substring(0, LastMatch.Length));
+                    }
+                    return (false, -1, index, "");
+                }
+                public bool Evaluate(string input)
+                {
+                    LastMatch = Regex.Match(input, Pattern, Options);
+                    return LastMatch.Success;
+                }
+                public bool Evaluate(char input)
+                {
+                    return Regex.Match(input.ToString(), Pattern, Options).Success;
+                }
+                public bool Evaluate(char[] input)
+                {
+                    return Regex.Match(new string(input), Pattern, Options).Success;
+                }
+                public RegexLexerRule(string ruleName, RegexOptions options, string input)
+                {
+                    RuleName = ruleName;
+                    Pattern = input;
+                    Options = options;
+                }
+                public override string ToString()
+                {
+                    return $"[{RuleName}, RegEx:{Pattern}]";
+                }
+            }
+            public class SearchUntilStringExclusiveRule : ILexerRule, ILexerDynamicRule
+            {
+                public bool DynamicEvaluate { get; set; } = true;
+                public List<string> ExcludeStrings { get; set; } = new List<string>();
+                public int Ordinal { get; set; } = 7;
+                public string RuleName { get; set; }
+                public string RuleType { get; set; } = "SearchUntilStringExclusiveRule";
+                public string Token { get; set; }
+                public string StringToken { get { return Token; } }
+                public bool Evaluate(char[] input)
+                {
+                    throw new NotImplementedException();
+                }
+                public bool Evaluate(string input)
+                {
+                    int firstIndex = input.IndexOf(Token);
+                    if (input.StartsWith(Token))
+                    {
+                        for(int i=0;i<ExcludeStrings.Count;i++)
+                        {
+                            if (input.StartsWith(ExcludeStrings[i])) return false;
+                        }
+                        return true;
+                    }
+                    return false;
+                }
+                public (bool Success, int NewIndex, int OriginalIndex, string Text) DynamicEvaluation(int index, string originalInput)
+                {
+                    string substring = originalInput.Substring(index);
+                    int curIndex = 0;
+                    if (substring.IndexOf(Token) == -1) { return (false, -1, index, ""); }
+                    else
+                    {
+                        bool done = false;
+                        bool cannotUse = false;
+                        while (!done)
+                        {
+                            int priorIndex = curIndex;
+                            curIndex = substring.IndexOf(Token, curIndex);
+                            int exclusionsCount = 0;
+                            foreach (string exclude in ExcludeStrings)
+                            {
+                                int excludeIndex = substring.IndexOf(exclude, priorIndex);
+                                if (excludeIndex + exclude.Length == curIndex + Token.Length)
+                                {
+                                    exclusionsCount++;
+                                    if (substring.IndexOf(Token, curIndex + 1) == -1)
+                                    {
+                                        cannotUse = true;
+                                        done = true;
+                                        break;
+                                    }
+                                    curIndex++;
+                                }
+                            }
+                            if (exclusionsCount == 0 && done == false) {
+                                done = true;
+                            }
+                        }
+                        if (cannotUse == false)
+                        {
+                            int returnIndex = index + curIndex;
+                            string returnText = substring.Substring(0, curIndex);
+                            return (true, returnIndex, index, returnText);
+                        }
+                    }
+                    return (true, 0, 0, "");
+                }
+                public SearchUntilStringExclusiveRule(string ruleName, string input)
+                {
+                    RuleName = ruleName;
+                    Token = input;
+                }
+                public override string ToString()
+                {
+                    return $"[{RuleName}, SearchUntilStringExclusiveRule:{Token}]";
+                }
+                public bool Evaluate(char input)
+                {
+                    return Evaluate(input.ToString());
+                }
+                public override bool Equals(object obj)
+                {
+                    var o = (SearchUntilStringExclusiveRule)obj;
+                    if (o.RuleName == this.RuleName) return true;
+                    return false;
+                }
+                public override int GetHashCode()
+                {
+                    return this.RuleName.GetHashCode();
+                }
+            }
+            public class SearchUntilStringInclusiveRule : ILexerRule, ILexerDynamicRule
+            {
+                public bool DynamicEvaluate { get; set; } = true;
+                public List<string> ExcludeStrings { get; set; } = new List<string>();
+                public int Ordinal { get; set; } = 7;
+                public string RuleName { get; set; }
+                public string RuleType { get; set; } = "SearchUntilStringInclusiveRule";
+                public string Token { get; set; }
+                public string StringToken { get { return Token; } }
+                public (bool Success, int NewIndex, int OriginalIndex, string Text) DynamicEvaluation(int index, string originalInput)
+                {
+                    string substring = originalInput.Substring(index);
+                    int curIndex = 0;
+                    if (substring.IndexOf(Token) == -1) { return (false, -1, index, ""); }
+                    else
+                    {
+                        bool done = false;
+                        bool cannotUse = false;
+                        while (!done)
+                        {
+                            int priorIndex = curIndex;
+                            curIndex = substring.IndexOf(Token, curIndex);
+                            int exclusionsCount = 0;
+                            foreach (string exclude in ExcludeStrings)
+                            {
+                                int excludeIndex = substring.IndexOf(exclude, priorIndex);
+                                if (excludeIndex + exclude.Length == curIndex + Token.Length)
+                                {
+                                    exclusionsCount++;
+                                    if (substring.IndexOf(Token, curIndex + 1) == -1)
+                                    {
+                                        cannotUse = true;
+                                        done = true;
+                                        break;
+                                    }
+                                    curIndex++;
+                                }
+                            }
+                            if (exclusionsCount == 0 && done == false)
+                            {
+                                done = true;
+                            }
+                        }
+                        if (cannotUse == false)
+                        {
+                            int returnIndex = index + curIndex + Token.Length;
+                            string returnText = substring.Substring(0, curIndex + Token.Length);
+                            return (true, returnIndex, index, returnText);
+                        }
+                    }
+                    return (true, 0, 0, "");
+                }
+                public bool Evaluate(char[] input)
+                {
+                    throw new NotImplementedException();
+                }
+                public bool Evaluate(string input)
+                {
+                    if (input.StartsWith(Token))
+                    {
+                        for (int i = 0; i < ExcludeStrings.Count; i++)
+                        {
+                            if (input.StartsWith(ExcludeStrings[i])) return false;
+                        }
+                        return true;
+                    }
+                    return false;
+                }
+                public SearchUntilStringInclusiveRule(string ruleName, string input)
+                {
+                    RuleName = ruleName;
+                    Token = input;
+                }
+                public override string ToString()
+                {
+                    return $"[{RuleName}, SearchUntilStringInclusiveRule:{Token}]";
+                }
+                public bool Evaluate(char input)
+                {
+                    return Evaluate(input.ToString());
+                }
+                public override bool Equals(object obj)
+                {
+                    var o = (SearchUntilStringInclusiveRule)obj;
                     if (o.RuleName == this.RuleName) return true;
                     return false;
                 }
@@ -448,16 +690,19 @@ namespace LexerParser
                 public int Maximum { get; set; }
                 public List<Span> Spans { get; set; }
             }
+            public string OriginalInput { get; set; }
             public List<Span> RawSpans { get; set; }
             public List<Span> OrganizedSpans { get; set; }
             public List<ResultPartition> OrganizedPartitions { get; set; }
+            public List<Span> RegexSpans { get; set; }
+            public List<Span> StringSearchSpans { get; set; }
             public List<Span> SingularSpans { get; set; }
             public List<Span> Parsed1 { get; set; }
             public List<Span> ParsedOrganized { get; set; }
             public Task<List<Span>> OrganizableSpans { get; set; }
             public List<LexerResult> CollectionInnerResults { get; set; } = new List<LexerResult>();
             public List<(int Line, int Index, Span Data)> CollectionInnerSpans { get; set; } = new List<(int, int, Span)>();
-            public Dictionary<(int start, int end), Span> DictionarySpans = new Dictionary<(int, int), Span>();
+            public Dictionary<(int start, int end), Span> DictionarySpans { get; set; } = new Dictionary<(int, int), Span>();
         }
         public List<LexerRules.ILexerRule> Rules { get; set; }
         public Dictionary<string, LexerRules.ILexerRule> RulesDictionary { get; set; } = new Dictionary<string, LexerRules.ILexerRule>();
@@ -523,6 +768,49 @@ namespace LexerParser
                         r1.Add(GetRule(key, v1));
                     }
                     rules.Add(new LexerRules.RuleCollectionRule(key, r1.ToArray()));
+                }
+                else if (value.Type == JTokenType.Object)
+                {
+                    var value1 = value.Children().First() as JProperty;
+                    string ruleName = l.Key;
+                    string ruleType = value1.Name;
+
+                    if (ruleType == "regex")
+                    {
+                        string pattern = (value1.Children().First()["pattern"]).ToString();
+                        var options = ((JArray)value1.Children().First()["options"]);
+                        List<string> optionStrings = new List<string>();
+                        for(int i=0;i<options.Count;i++)
+                        {
+                            optionStrings.Add(options[i].ToString());
+                        }
+                        RegexOptions opt = new RegexOptions();
+                        foreach(var opt1 in optionStrings)
+                        {
+                            if (opt1.ToLower() == "singleline") { opt = opt | RegexOptions.Singleline; }
+                        }
+                        rules.Add(new Lexer.LexerRules.RegexLexerRule(ruleName, opt, pattern));
+                    }
+                    else if (ruleType == "searchUntilStringInclusive" || ruleType == "searchUntilStringExclusive")
+                    {
+                        string endingString = (value1.Children().First()["endingString"]).ToString();
+                        var exceptionStringsCollection = ((JArray)value1.Children().First()["exceptionStrings"]);
+                        List<string> exceptionStrings = new List<string>();
+                        for (int i = 0; i < exceptionStringsCollection.Count; i++)
+                        {
+                            exceptionStrings.Add(exceptionStringsCollection[i].ToString());
+                        }
+                        if (ruleType == "searchUntilStringInclusive") {
+                            var rule1 = new Lexer.LexerRules.SearchUntilStringInclusiveRule(ruleName, endingString);
+                            rule1.ExcludeStrings = exceptionStrings;
+                            rules.Add(rule1);
+                        }
+                        else if (ruleType == "searchUntilStringExclusive") {
+                            var rule1 = new Lexer.LexerRules.SearchUntilStringExclusiveRule(ruleName, endingString);
+                            rule1.ExcludeStrings = exceptionStrings;
+                            rules.Add(rule1);
+                        }
+                    }
                 }
             }
             return rules;
@@ -837,8 +1125,11 @@ namespace LexerParser
             {
                 //RawSpans = spans1.Item1,
                 //OrganizedSpans = OrganizeSpans(spans.Item1),
+                OriginalInput = input,
                 OrganizedSpans = organized2,
-                OrganizedPartitions = partitions
+                OrganizedPartitions = partitions,
+                RegexSpans = spans1.Item2,
+                StringSearchSpans = spans1.Item3
                 //SingularSpans = null,
                 //Parsed1 = newSpans,
                 //ParsedOrganized = organized2,
@@ -870,11 +1161,15 @@ namespace LexerParser
                 {
                     //RawSpans = organized1,
                     OrganizedSpans = org1a,
+                    RegexSpans = spans1.Item2.Distinct().ToList(),
+                    StringSearchSpans = spans1.Item3
                     //SingularSpans = null,
                 };
                 results.Add(result);
             }
             List<(int Line, int Index, Span Data)> spans = new List<(int, int, Span)>();
+            List<(int Line, int Index, Span Data)> spansRegex = new List<(int, int, Span)>();
+            List<(int Line, int Index, Span Data)> spansSearch = new List<(int, int, Span)>();
             int Line = 0;
             foreach (var item in results)
             {
@@ -886,10 +1181,35 @@ namespace LexerParser
                 }
                 Line++;
             }
+            Line = 0;
+            foreach(var item in results)
+            {
+                int Index = 0;
+                foreach(var item1 in item.RegexSpans)
+                {
+                    spansRegex.Add((Line,Index,item1));
+                    Index++;
+                }
+                Line++;
+            }
+            Line = 0;
+            foreach (var item in results)
+            {
+                int Index = 0;
+                foreach (var item1 in item.StringSearchSpans)
+                {
+                    spansSearch.Add((Line, Index, item1));
+                    Index++;
+                }
+                Line++;
+            }
             lexerResult.CollectionInnerResults = results;
             lexerResult.CollectionInnerSpans = spans;
             lexerResult.OrganizedSpans = TransposeSpans(spans);
             lexerResult.OrganizedPartitions = OrganizePartitions(lexerResult.OrganizedSpans);
+            lexerResult.OriginalInput = string.Join(Environment.NewLine, input);
+            lexerResult.RegexSpans = TransposeSpans(spansRegex.Distinct().ToList());
+            lexerResult.StringSearchSpans = TransposeSpans(spansSearch.Where(x => x.Data.Rule.RuleName == "strEscDblQuoteString1").ToList());
 
             return lexerResult;
         }
@@ -900,6 +1220,8 @@ namespace LexerParser
             LexerRules.ILexerRule[] lookupRules = Rules.Where(x => x.RuleType == "RuleLookup").ToArray();
             LexerRules.ILexerRule[] ruleCollections = Rules.Where(x => x.RuleType == "RuleCollection").ToArray();
             LexerRules.ILexerRule[] repeatRules = Rules.Where(x => x.RuleType == "RepeatRule").ToArray();
+            LexerRules.ILexerRule[] regexRules = Rules.Where(x => x.RuleType == "Regex").ToArray();
+            LexerRules.ILexerRule[] searchUntilStringRule = Rules.Where(x => x.RuleType == "SearchUntilStringExclusiveRule" || x.RuleType == "SearchUntilStringInclusiveRule").ToArray();
 
             List<Span> spans = new List<Span>();
             Func<string, List<Span>> checkSingularRules1 = new Func<string, List<Span>>((input1) =>
@@ -1050,6 +1372,10 @@ namespace LexerParser
                 repeatSpans.AddRange(checkRepeatRules(input[i].ToString(), i));
             }
             repeatSpans = repeatSpans.OrderBy(x => x.Rule.RuleName).ThenBy(x => x.Start).ToList();
+
+            List<Span> regexSpans = new List<Span>();
+            List<Span> stringSearchSpans = new List<Span>();
+
             List<Span> contiguousSpans = new List<Span>();
             List<List<Span>> contiguousStep = new List<List<Span>>();
             for (int i = 0; i < repeatSpans.Count; i++)
@@ -1079,6 +1405,7 @@ namespace LexerParser
                 }
                 contiguousStep.Add(spansContig1);
             }
+
             List<Span>[] contig1 = contiguousStep.Where(x => x.Count > 1).ToArray();
             //foreach(var contig in contiguousStep.Where(x => x.Count > 1))
             for (int i = 0; i < contig1.Length; i++)
@@ -1106,6 +1433,7 @@ namespace LexerParser
             spans.AddRange(collectionSpans);
             spans.AddRange(repeatSpans);
             spans.AddRange(stringSpans);
+
             spans.AddRange(contiguousSpans);
 
             spans = spans.OrderByDescending(x => x.Length).OrderBy(x => x.Start).ThenByDescending(x => x.Rule.Ordinal).ToList();
@@ -1137,7 +1465,7 @@ namespace LexerParser
                 res1.AddRange(spans.Where(x => x.Rule.RuleType != "RepeatRule").ToArray());
                 res1 = res1.OrderBy(x => x.Start).ThenByDescending(x => x.Rule.Ordinal).ToList();
             }
-            return (spans, spans, spans);
+            return (spans, regexSpans, stringSearchSpans);
         }
         public (List<Span>, List<Span>, List<Span>) ProcessText(string input, bool removeInnerDupes = false, int maxSlidingWindow = -1)
         {

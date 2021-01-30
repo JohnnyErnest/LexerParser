@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -163,6 +164,18 @@ namespace LexerParser
                     HasSequences = !string.IsNullOrEmpty(_SequenceList);
                     _Sequences = !string.IsNullOrEmpty(_SequenceList) ? _SequenceList.Split(',').Select(x => x.Trim()).ToArray() : null;
                 } }
+            string _DynamicRulesList;
+            public bool HasDyanmicRules { get; set; }
+            public string DynamicRulesList
+            {
+                get { return _DynamicRulesList; }
+                set
+                {
+                    _DynamicRulesList = value;
+                    HasDyanmicRules = !string.IsNullOrEmpty(_DynamicRulesList);
+                    _DynamicRules = !string.IsNullOrEmpty(_DynamicRulesList) ? _DynamicRulesList.Split(',').Select(x => x.Trim()).ToArray() : null;
+                }
+            }
             string _EBNFItemList;
             [JsonProperty("ebnfItem")]
             public string EBNFItemList { get { return _EBNFItemList; } set {
@@ -177,6 +190,8 @@ namespace LexerParser
             public string[] Tokens { get { return _Tokens; } }
             string[] _Sequences;
             public string[] Sequences { get { return _Sequences; } }
+            string[] _DynamicRules;
+            public string[] DynamicRules { get { return _DynamicRules; } }
             string[] _EBNFChoices;
             public string[] EBNFChoices { get { return _EBNFChoices; } }
             string[] _EBNFConcatenations;
@@ -876,6 +891,7 @@ repeat:
             bool repeating = section.IsRepeating;
             bool hasTokens = section.HasTokens;
             bool hasSequences = section.HasSequences;
+            bool hasDynamicRules = section.HasDyanmicRules;
 
             //var spans = input.OrganizedSpans.Where(x => x.Start <= index && index < x.End).ToArray();
             //var spans = input.OrganizedSpans.Where(x => x.IsBetween(index)).ToArray();
@@ -1149,6 +1165,52 @@ repeat:
                     }
                 }
             }
+            if (hasDynamicRules && !found)
+            {
+                string[] rules = section.DynamicRules;
+                for(int i=0;i<rules.Length;i++)
+                {
+                    string rule = rules[i];
+
+                    var rule1 = InputLexer.Rules.Where(x => x.RuleName == rule && x.DynamicEvaluate).FirstOrDefault();
+                    if (rule1 != null)
+                    {
+                        var result1 = (rule1 as Lexer.LexerRules.ILexerDynamicRule).DynamicEvaluation(index, input.OriginalInput);
+                        if (result1.Success)
+                        {
+                            found = true;
+                            index = result1.NewIndex;
+                            Lexer.Span span = new Lexer.Span()
+                            {
+                                Start = result1.OriginalIndex,
+                                InnerSpans = new List<Lexer.Span>(),
+                                Rule = rule1,
+                                Text = result1.Text,
+                                Length = result1.Text.Length
+                            };
+                            string groupName = rule1.RuleName;
+                            if (groupName.IndexOf(":::") > -1)
+                            {
+                                int strIndex = groupName.IndexOf(":::");
+                                groupName = groupName.Substring(0, strIndex);
+                            }
+                            variables.Add(new ParserResult() {
+                                Level = level,
+                                VariableName = section.VariableName,
+                                VariableValue = span.Text,
+                                Span = span,
+                                Section = section,
+                                Sequence = sequence,
+                                Name = rule1.RuleName,
+                                GroupName = groupName,
+                                Root = root,
+                                Parent = parent
+                            });
+                            break;
+                        }
+                    }
+                }
+            }
             if (found && repeating)
             {
                 foundOnce = true;
@@ -1230,7 +1292,9 @@ repeat:
                     }
                     if (result.Item2) { Console.ForegroundColor = ConsoleColor.Green; }
                     else { Console.ForegroundColor = ConsoleColor.Red; }
-                    Console.WriteLine(level + " " + "".PadLeft(level * 3, ' ') + $"\"{textPrior}\", \"{textCurrent}\", {sectionIndex}:{sequence.SequenceName}, Section:{section}, Found:{result.Item2}, FoundOnce:{result.Item3}, IdxResult:{result.Item1}");
+                    string resultItem = "";
+                    if (result.Item4 != null) { if (result.Item4.Count > 0) { resultItem = result.Item4[0].Name; } }
+                    Console.WriteLine(level + " " + "".PadLeft(level * 3, ' ') + $"\"{textPrior}\", \"{textCurrent}\", {sectionIndex}:{sequence.SequenceName}, Section:{section}, Found:{result.Item2}, FoundOnce:{result.Item3}, IdxResult:{result.Item1}, ItemName:{resultItem}");
                 }
                 //Log.AppendLine(level + " " + "".PadLeft(level * 3, ' ') + $"{sectionIndex}:{sequence.SequenceName}, Section:{section}, Found:{result.Item2}, FoundOnce:{result.Item3}, IdxResult:{result.Item1}");
 
@@ -1690,6 +1754,38 @@ repeat:
             }
             return searchResults;
         }
+        public Result Search(Lexer.LexerResult input, Lexer lexer = null, string sequenceName = "", bool showOnConsole = false, int maxSlidingWindow = -1)
+        {
+            MaxParseLevel = -1;
+            MaxParseIndex = -1;
+            InitParserLog();
+            //Lexer.LexerResult lexerResult = InputLexer.GetSpans(input, maxSlidingWindow: maxSlidingWindow);
+            //Lexer.LexerResult lexerResult = new Lexer.LexerResult()
+            //{
+            //    OrganizedSpans = input
+            //};
+
+            (bool, ParserSequence, List<ParserResult>) result = (false, null, new List<ParserResult>());
+            if (lexer != null && sequenceName != null)
+            {
+                result = this.CheckSearch(input, lexer, sequenceName, showOnConsole);
+            }
+            else if (lexer != null)
+            {
+                result = this.CheckSearch(input, lexer, showOnConsole: showOnConsole);
+            }
+            else if (sequenceName != null)
+            {
+                result = this.CheckSearch(input, InputLexer, sequenceName, showOnConsole);
+            }
+            else
+            {
+                result = this.CheckSearch(input, InputLexer);
+            }
+            var items = OrganizeParentNodes(result.Item3);
+            return new Result() { Matched = result.Item1, LexerResult = input, Sequence = result.Item2, Results = items };
+            //return new SearchResult() { Result = items }
+        }
         bool IsSequence(string name)
         {
             return Sequences.Where(x => x.SequenceName == name).Count() > 0;
@@ -1697,7 +1793,12 @@ repeat:
         }
         bool IsToken(string name)
         {
-            return InputLexer.Rules.Where(x => x.RuleName == name).Count() > 0;
+            return InputLexer.Rules.Where(x => x.RuleName == name && x.DynamicEvaluate == false).Count() > 0;
+            //return InputLexer.RulesDictionary.ContainsKey(name);
+        }
+        bool IsDynamicLexerRule(string name)
+        {
+            return InputLexer.Rules.Where(x => x.RuleName == name && x.DynamicEvaluate == true).Count() > 0;
             //return InputLexer.RulesDictionary.ContainsKey(name);
         }
         void AddEBNFRuleSections(string ruleIdentifier, string identifier, string inputRule, string outerText)
@@ -1717,6 +1818,7 @@ repeat:
                 var choices = strSection.Split(new char[] { '|' }, StringSplitOptions.RemoveEmptyEntries).Select(x => x.Trim()).ToArray();
                 List<string> tokens = new List<string>();
                 List<string> sequences = new List<string>();
+                List<string> dynamicRules = new List<string>();
                 List<string> unknowns = new List<string>();
                 foreach (var choice in choices)
                 {
@@ -1727,6 +1829,10 @@ repeat:
                     else if (IsToken(choice))
                     {
                         tokens.Add(choice);
+                    }
+                    else if (IsDynamicLexerRule(choice))
+                    {
+                        dynamicRules.Add(choice);
                     }
                     else if (choice == ruleIdentifier || choice == identifier)
                     {
@@ -1748,6 +1854,7 @@ repeat:
                 }
                 string tokensList = string.Join(",", tokens);
                 string sequencesList = string.Join(",", sequences);
+                string dynamicRulesList = string.Join(",", dynamicRules);
                 string unknownsList = string.Join(",", unknowns);
                 //Console.WriteLine($"Section - Tokens:{tokensList}, Sequences:{sequencesList}, Unknowns:{unknownsList}, Opt:{opt}, Rep:{rep}");
                 seqSections.Add(new SequenceSection()
@@ -1755,6 +1862,7 @@ repeat:
                     Unknowns = unknownsList,
                     TokenList = tokensList,
                     SequenceList = sequencesList,
+                    DynamicRulesList = dynamicRulesList,
                     IsOptional = opt,
                     IsRepeating = rep
                 });
@@ -1882,6 +1990,126 @@ repeat:
                     AddEBNFRuleSections(identifierText, textStrings[i].identifier, textStrings[i].text, "");
                 }
             }
+        }
+        public (bool Success, int NewIndex, int OriginalIndex, string Text) ExecuteDynamicLexerRule(string input, int index, string ruleText)
+        {
+            var rule = Parse(ruleText, sequenceName: "dynamicLexerAction");
+            (bool Success, int NewIndex, int OriginalIndex, string Text) result = (false, 0, 0, "");
+            if (rule.Matched)
+            {
+                string ruleType = "";
+                var ruleType_a = rule.Results[0].GetDescendantsOfType(new string[] { "dynamicLexerRegex", "dynamicLexerExclusive", "dynamicLexerInclusive" });
+                foreach(var rt in ruleType_a)
+                {
+                    if (rt.Name == "dynamicLexerRegex") { ruleType = "Regex"; }
+                    else if (rt.Name == "dynamicLexerExclusive") { ruleType = "Exclusive"; }
+                    else if (rt.Name == "dynamicLexerInclusive") { ruleType = "Inclusive"; }
+                }
+                var res1 = rule.Results[0].GetDescendantsOfType(new string[] { "dynamicLexerAttribute" });
+                List<(string Name, string Value)> attributes = new List<(string, string)>();
+                foreach(var r1 in res1)
+                {
+                    string name = r1.GetDescendantsOfType(new[] { "identifier" })[0].InnerResultsText;
+                    string value = r1.GetDescendantsOfType(new[] { "ebnfTerminal" })[0].GetDescendantsOfType(new[] { "ebnfCharacters" })[0].InnerResultsText;
+                    attributes.Add((name, value));
+                }
+                Lexer.LexerRules.ILexerDynamicRule ruleNew = null;
+                if (ruleType == "Regex") {
+                    string options = RegexOptions.None.ToString();
+                    if (attributes.Where(x => x.Name == "Options").Count() > 0)
+                    {
+                        options = attributes.Where(x => x.Name == "Options").First().Value;
+                    }
+                    ruleNew = new Lexer.LexerRules.RegexLexerRule(
+                        attributes.Where(x => x.Name == "Name").First().Value, 
+                        (RegexOptions)Enum.Parse(typeof(RegexOptions), options),
+                        attributes.Where(x => x.Name == "Pattern").First().Value);
+                    (ruleNew as Lexer.LexerRules.RegexLexerRule).Pattern = attributes.Where(x => x.Name == "Pattern").First().Value;
+                }
+                else if (ruleType == "Exclusive")
+                {
+                    ruleNew = new Lexer.LexerRules.SearchUntilStringExclusiveRule(
+                        attributes.Where(x => x.Name == "Name").First().Value, 
+                        input);
+                    (ruleNew as Lexer.LexerRules.SearchUntilStringExclusiveRule).Token = attributes.Where(x => x.Name == "EndingString").First().Value;
+                    (ruleNew as Lexer.LexerRules.SearchUntilStringExclusiveRule).ExcludeStrings = attributes.Where(x => x.Name == "ExcludeStrings").First().Value.Split(',').ToList();
+                }
+                else if (ruleType == "Inclusive")
+                {
+                    ruleNew = new Lexer.LexerRules.SearchUntilStringInclusiveRule(
+                        attributes.Where(x => x.Name == "Name").First().Value,
+                        input);
+                    (ruleNew as Lexer.LexerRules.SearchUntilStringInclusiveRule).Token = attributes.Where(x => x.Name == "EndingString").First().Value;
+                    (ruleNew as Lexer.LexerRules.SearchUntilStringInclusiveRule).ExcludeStrings = attributes.Where(x => x.Name == "ExcludeStrings").First().Value.Split(',').ToList();
+                }
+                if (ruleNew != null)
+                {
+                    result = ruleNew.DynamicEvaluation(index, input);
+                }
+            }
+            return result;
+        }
+        public void AddDynamicLexerRule(string ruleText)
+        {
+            var rule = Parse(ruleText, sequenceName: "dynamicLexerAction");
+            //(bool Success, int NewIndex, int OriginalIndex, string Text) result = (false, 0, 0, "");
+            if (rule.Matched)
+            {
+                string ruleType = "";
+                var ruleType_a = rule.Results[0].GetDescendantsOfType(new string[] { "dynamicLexerRegex", "dynamicLexerExclusive", "dynamicLexerInclusive" });
+                foreach (var rt in ruleType_a)
+                {
+                    if (rt.Name == "dynamicLexerRegex") { ruleType = "Regex"; }
+                    else if (rt.Name == "dynamicLexerExclusive") { ruleType = "Exclusive"; }
+                    else if (rt.Name == "dynamicLexerInclusive") { ruleType = "Inclusive"; }
+                }
+                var res1 = rule.Results[0].GetDescendantsOfType(new string[] { "dynamicLexerAttribute" });
+                List<(string Name, string Value)> attributes = new List<(string, string)>();
+                foreach (var r1 in res1)
+                {
+                    string name = r1.GetDescendantsOfType(new[] { "identifier" })[0].InnerResultsText;
+                    string value = r1.GetDescendantsOfType(new[] { "ebnfTerminal" })[0].GetDescendantsOfType(new[] { "ebnfCharacters" })[0].InnerResultsText;
+                    attributes.Add((name, value));
+                }
+                Lexer.LexerRules.ILexerDynamicRule ruleNew = null;
+                if (ruleType == "Regex")
+                {
+                    string options = RegexOptions.None.ToString();
+                    if (attributes.Where(x => x.Name == "Options").Count() > 0)
+                    {
+                        options = attributes.Where(x => x.Name == "Options").First().Value;
+                    }
+                    ruleNew = new Lexer.LexerRules.RegexLexerRule(
+                        attributes.Where(x => x.Name == "Name").First().Value,
+                        (RegexOptions)Enum.Parse(typeof(RegexOptions), options),
+                        attributes.Where(x => x.Name == "Pattern").First().Value);
+                    (ruleNew as Lexer.LexerRules.RegexLexerRule).Pattern = attributes.Where(x => x.Name == "Pattern").First().Value;
+                }
+                else if (ruleType == "Exclusive")
+                {
+                    ruleNew = new Lexer.LexerRules.SearchUntilStringExclusiveRule(
+                        attributes.Where(x => x.Name == "Name").First().Value,
+                        attributes.Where(x => x.Name == "EndingString").First().Value);
+                    (ruleNew as Lexer.LexerRules.SearchUntilStringExclusiveRule).Token = attributes.Where(x => x.Name == "EndingString").First().Value;
+                    (ruleNew as Lexer.LexerRules.SearchUntilStringExclusiveRule).ExcludeStrings = attributes.Where(x => x.Name == "ExcludeStrings").First().Value.Split(',').ToList();
+                }
+                else if (ruleType == "Inclusive")
+                {
+                    ruleNew = new Lexer.LexerRules.SearchUntilStringInclusiveRule(
+                        attributes.Where(x => x.Name == "Name").First().Value,
+                        attributes.Where(x => x.Name == "EndingString").First().Value);
+                    (ruleNew as Lexer.LexerRules.SearchUntilStringInclusiveRule).Token = attributes.Where(x => x.Name == "EndingString").First().Value;
+                    (ruleNew as Lexer.LexerRules.SearchUntilStringInclusiveRule).ExcludeStrings = attributes.Where(x => x.Name == "ExcludeStrings").First().Value.Split(',').ToList();
+                }
+                if (ruleNew != null)
+                {
+                    //result = ruleNew.DynamicEvaluation(index, input);
+                    RemoveEBNFRule((ruleNew as Lexer.LexerRules.ILexerRule).RuleName);
+                    InputLexer.Rules.Add(ruleNew as Lexer.LexerRules.ILexerRule);
+                    InputLexer.SyncRuleDictionary();
+                }
+            }
+            //return result;
         }
         public void AddEBNFGrammar(string input)
         {
