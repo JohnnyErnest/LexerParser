@@ -105,6 +105,50 @@
     "whitespaces": "repeat:whitespace",
 
     "strEscapedQuote": "ci_string:\\'",
-    "strEscapedDoubleQuote": "ci_string:\\\""
+    "strEscapedDoubleQuote": "ci_string:\\\"",
+
+    "regexCharRule": {
+      "regex": {
+        "pattern": "[A-Za-z0-9\\-]+",
+        "options": [ "SingleLine" ]
+      }
+    },
+    "regexDblQuoteString": {
+      "regex": {
+        "pattern": "\".*?(?<!\\\\)\"",
+        "options": [ "SingleLine" ]
+      }
+    },
+    "regexSingleQuoteString": {
+      "regex": {
+        "pattern": "'.*?(?<!\\\\)'",
+        "options": [ "SingleLine" ]
+      }
+    },
+
+    "strEscDblQuoteString1": {
+      "searchUntilStringInclusive": {
+        "endingString": "\"",
+        "exceptionStrings": [ "\\\"" ]
+      }
+    },
+    "strEscapeQuoteString1": {
+      "searchUntilStringInclusive": {
+        "endingString": "'",
+        "exceptionStrings": [ "\\'" ]
+      }
+    },
+    "strEscDblQuoteString2": {
+      "searchUntilStringExclusive": {
+        "endingString": "\"",
+        "exceptionStrings": [ "\\\"" ]
+      }
+    },
+    "strEscapeQuoteString2": {
+      "searchUntilStringExclusive": {
+        "endingString": "'",
+        "exceptionStrings": [ "\\'" ]
+      }
+    }
   }
 }

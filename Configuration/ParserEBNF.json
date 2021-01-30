@@ -10,6 +10,9 @@
     "strOptional": "ci_string:/Opt",
     "strDoubleBackslash": "string:\\\\",
     "strCaseInsensitiveStart": "ci_string:##",
+    "strRegexOpening": "string:???-Regex",
+    "strStringSearchExclusive": "string:???-Exclusive",
+    "strStringSearchInclusive": "string:???-Inclusive"
   },
   "parser": {
     "ebnfCharacter": {
@@ -134,9 +137,65 @@
         }
       ]
     },
+    "dynamicLexerAttribute": {
+      "sequence": [
+        {
+          "tokenList": "colon"
+        },
+        {
+          "sequenceList": "identifier"
+        },
+        {
+          "tokenList": "equals"
+        },
+        {
+          "sequenceList": "ebnfTerminal"
+        }
+      ]
+    },
+    "dynamicLexerRegex": {
+      "sequence": [
+        {
+          "tokenList": "strRegexOpening"
+        },
+        {
+          "sequenceList": "dynamicLexerAttribute",
+          "isRepeating": "true"
+        }
+      ]
+    },
+    "dynamicLexerExclusive": {
+      "sequence": [
+        {
+          "tokenList": "strStringSearchExclusive"
+        },
+        {
+          "sequenceList": "dynamicLexerAttribute",
+          "isRepeating": "true"
+        }
+      ]
+    },
+    "dynamicLexerInclusive": {
+      "sequence": [
+        {
+          "tokenList": "strStringSearchInclusive"
+        },
+        {
+          "sequenceList": "dynamicLexerAttribute",
+          "isRepeating": "true"
+        }
+      ]
+    },
+    "dynamicLexerAction": {
+      "sequence": [
+        {
+          "sequenceList": "dynamicLexerRegex,dynamicLexerExclusive,dynamicLexerInclusive"
+        }
+      ]
+    },
     "rhsValue": {
       "sequence": [
-        { "sequenceList": "ebnfIdentifierGroupPlaceholder,ebnfIdentifier,ebnfTerminal" }
+        { "sequenceList": "dynamicLexerAction,ebnfIdentifierGroupPlaceholder,ebnfIdentifier,ebnfTerminal" }
       ]
     },
     "rhsBlockBracket": {
