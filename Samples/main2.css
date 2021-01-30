@@ -1,0 +1,27 @@
+﻿@font-face {
+    font-family: 'Harmonia';
+    src: url('../fonts/harmonia.ttf');
+}
+
+@font-face {
+    font-family: 'Great Vibes';
+    src: url('../fonts/GreatVibes-Regular.ttf');
+}
+
+:root {
+    --harmonia: 'Harmonia', 'sans serif';
+    --great-vibes: 'Great Vibes', 'serif';
+}
+
+::-webkit-scrollbar {
+    display: none;
+}
+
+body {
+    background: white;
+    color: black;
+    margin: 0;
+    font-family: var(--harmonia);
+    scrollbar-width: none;
+    scrollbar-color: transparent transparent;
+}
